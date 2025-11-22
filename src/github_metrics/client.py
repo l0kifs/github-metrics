@@ -53,7 +53,10 @@ class GitHubGraphQLClient:
             )
 
             response = await client.post(
-                self.api_url, json=payload, headers=self.headers, timeout=30.0
+                self.api_url,
+                json=payload,
+                headers=self.headers,
+                timeout=self.settings.github_api_timeout,
             )
             response.raise_for_status()
 

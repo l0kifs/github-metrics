@@ -145,9 +145,9 @@ class MetricsCollector:
             Parsed PR metrics
         """
         # Basic info
-        number = pr_node["number"]
-        title = pr_node["title"]
-        url = pr_node["url"]
+        number = pr_node.get("number", 0)
+        title = pr_node.get("title", "")
+        url = pr_node.get("url", "")
 
         # Author
         author_data = pr_node.get("author", {})
@@ -157,8 +157,11 @@ class MetricsCollector:
         )
 
         # Dates
-        created_at = datetime.fromisoformat(pr_node["createdAt"].replace("Z", "+00:00"))
-        closed_at = datetime.fromisoformat(pr_node["closedAt"].replace("Z", "+00:00"))
+        created_at_str = pr_node.get("createdAt", "")
+        closed_at_str = pr_node.get("closedAt", "")
+
+        created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+        closed_at = datetime.fromisoformat(closed_at_str.replace("Z", "+00:00"))
         merged_at_str = pr_node.get("mergedAt")
         merged_at = (
             datetime.fromisoformat(merged_at_str.replace("Z", "+00:00"))

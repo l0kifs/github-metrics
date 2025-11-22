@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         default="https://api.github.com/graphql",
         description="GitHub GraphQL API URL",
     )
+    github_api_timeout: float = Field(
+        default=30.0,
+        description="GitHub API request timeout in seconds",
+    )
 
 
 def get_settings() -> Settings:

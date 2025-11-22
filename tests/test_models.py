@@ -2,7 +2,6 @@
 
 from datetime import datetime, timezone
 
-import pytest
 
 from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics, User
 

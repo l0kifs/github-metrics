@@ -18,7 +18,9 @@ async def main() -> None:
     collector = MetricsCollector(settings)
 
     # Define time period (last 30 days)
-    end_date = datetime.now()
+    from datetime import timezone
+
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=30)
 
     # Example: Collect metrics for a repository
