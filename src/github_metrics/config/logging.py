@@ -6,11 +6,16 @@ from github_metrics.config.settings import get_settings
 
 settings = get_settings()
 
+_logging_configured = False
+
 
 def setup_logging() -> None:
     """
     Configure logging for the application.
     """
+    global _logging_configured
+    if _logging_configured:
+        return
 
     # Remove default handler to avoid duplicate logs
     logger.remove()
@@ -20,7 +25,7 @@ def setup_logging() -> None:
         sys.stderr,
         level=settings.logging_level,
         format=settings.logging_format,
-        colorize=False,
+        colorize=True,
         backtrace=True,
         diagnose=True,
         enqueue=True,
@@ -35,3 +40,5 @@ def setup_logging() -> None:
         "Logging system initialized",
         log_level=settings.logging_level,
     )
+
+    _logging_configured = True

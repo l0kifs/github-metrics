@@ -4,7 +4,6 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from github_metrics import MetricsCollector, get_settings
-from github_metrics.config.logging import setup_logging
 
 
 async def main() -> None:
@@ -15,9 +14,6 @@ async def main() -> None:
     1. Set GITHUB_METRICS__GITHUB_TOKEN environment variable
     2. Update owner and repo variables below
     """
-    # Setup logging
-    setup_logging()
-
     # Get settings (reads from environment variables)
     settings = get_settings()
 
@@ -31,8 +27,8 @@ async def main() -> None:
 
     # Repository to collect metrics from
     # Update these with your repository details
-    owner = "owner"  # e.g., "octocat"
-    repo = "repo"  # e.g., "Hello-World"
+    owner = "octocat"  # e.g., "octocat"
+    repo = "Hello-World"  # e.g., "Hello-World"
 
     print(f"\nCollecting PR metrics for {owner}/{repo}")
     print(f"Period: {start_date.date()} to {end_date.date()}")

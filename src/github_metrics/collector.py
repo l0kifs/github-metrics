@@ -6,6 +6,7 @@ from typing import Any
 from loguru import logger
 
 from github_metrics.client import GitHubGraphQLClient
+from github_metrics.config.logging import setup_logging
 from github_metrics.config.settings import Settings
 from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics, User
 from github_metrics.queries import PULL_REQUESTS_QUERY
@@ -21,6 +22,7 @@ class MetricsCollector:
         Args:
             settings: Application settings
         """
+        setup_logging()
         self.client = GitHubGraphQLClient(settings)
 
     async def collect_pr_metrics(
