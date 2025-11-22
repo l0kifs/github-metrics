@@ -32,7 +32,10 @@ class GitHubGraphQLClient:
         )
 
     async def execute_query(
-        self, query: str, variables: dict[str, Any] | None = None
+        self,
+        query: str,
+        variables: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         """
         Execute a GraphQL query against GitHub API.
@@ -40,6 +43,7 @@ class GitHubGraphQLClient:
         Args:
             query: GraphQL query string
             variables: Optional variables for the query
+            timeout: Optional timeout for this request in seconds
 
         Returns:
             Response data from the API
@@ -65,6 +69,9 @@ class GitHubGraphQLClient:
             response = await self.client.post(
                 self.api_url,
                 json=payload,
+                timeout=timeout
+                if timeout is not None
+                else self.settings.github_api_timeout,
             )
 
             # Check for rate limiting before processing response

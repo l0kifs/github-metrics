@@ -32,6 +32,7 @@ class MetricsCollector:
         start_date: datetime,
         end_date: datetime,
         base_branch: str | None = None,
+        timeout: float | None = None,
     ) -> RepositoryMetrics:
         """
         Collect PR metrics for a repository within a time period.
@@ -42,6 +43,7 @@ class MetricsCollector:
             start_date: Start of the period (inclusive)
             end_date: End of the period (inclusive)
             base_branch: Optional target branch filter (e.g., 'main', 'develop')
+            timeout: Optional timeout for API requests in seconds
 
         Returns:
             Repository metrics containing all PRs closed in the period
@@ -76,7 +78,9 @@ class MetricsCollector:
                 "first": 100,
             }
 
-            data = await self.client.execute_query(PULL_REQUESTS_QUERY, variables)
+            data = await self.client.execute_query(
+                PULL_REQUESTS_QUERY, variables, timeout
+            )
 
             repository_data = data.get("repository", {})
             pr_data = repository_data.get("pullRequests", {})
