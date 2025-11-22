@@ -1,0 +1,39 @@
+[build-system]
+requires = ["uv_build>=0.9.9"]
+build-backend = "uv_build"
+
+[project]
+name = "github-metrics"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "l0kifs", email = "l0kifs91@gmail.com" }
+]
+maintainers = [
+    { name = "l0kifs", email = "l0kifs91@gmail.com" }
+]
+keywords = []
+classifiers = []
+dependencies = [
+    "httpx>=0.28.1",
+    "loguru>=0.7.3",
+    "pydantic>=2.12.4",
+    "pydantic-settings>=2.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/l0kifs/github-metrics"
+Documentation = "https://github.com/l0kifs/github-metrics/blob/main/README.md"
+Repository = "https://github.com/l0kifs/github-metrics.git"
+Issues = "https://github.com/l0kifs/github-metrics/issues"
+Changelog = "https://github.com/l0kifs/github-metrics/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "pytest>=9.0.1",
+    "ruff>=0.14.5",
+]
