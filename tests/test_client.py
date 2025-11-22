@@ -33,9 +33,7 @@ def test_client_initialization(client, settings):
 async def test_execute_query_success(client):
     """Test successful query execution."""
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "data": {"repository": {"name": "test-repo"}}
-    }
+    mock_response.json.return_value = {"data": {"repository": {"name": "test-repo"}}}
     mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient") as mock_client_class:
