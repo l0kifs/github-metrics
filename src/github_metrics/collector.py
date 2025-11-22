@@ -146,6 +146,10 @@ class MetricsCollector:
             pull_requests=filtered_pull_requests,
         )
 
+    async def close(self) -> None:
+        """Close the client."""
+        await self.client.close()
+
     def _parse_pr_metrics(self, pr_node: dict[str, Any]) -> PRMetrics:
         """
         Parse PR node from GraphQL response into PRMetrics model.

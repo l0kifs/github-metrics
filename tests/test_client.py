@@ -1,6 +1,6 @@
 """Tests for GitHub GraphQL client."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -39,17 +39,12 @@ async def test_execute_query_success(client: GitHubGraphQLClient) -> None:
     mock_response.json.return_value = {"data": {"repository": {"name": "test-repo"}}}
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client_class.return_value = mock_client
-
+    with patch.object(client.client, "post", return_value=mock_response) as mock_post:
         query = "query { repository { name } }"
         result = await client.execute_query(query)
 
         assert result == {"repository": {"name": "test-repo"}}
-        mock_client.post.assert_called_once()
+        mock_post.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -61,18 +56,13 @@ async def test_execute_query_with_variables(client: GitHubGraphQLClient) -> None
     mock_response.json.return_value = {"data": {"test": "result"}}
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client_class.return_value = mock_client
-
+    with patch.object(client.client, "post", return_value=mock_response) as mock_post:
         query = "query($var: String!) { test(var: $var) }"
         variables = {"var": "value"}
         result = await client.execute_query(query, variables)
 
         assert result == {"test": "result"}
-        call_args = mock_client.post.call_args
+        call_args = mock_post.call_args
         assert call_args[1]["json"]["variables"] == variables
 
 
@@ -88,12 +78,7 @@ async def test_execute_query_with_errors(client: GitHubGraphQLClient) -> None:
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client_class.return_value = mock_client
-
+    with patch.object(client.client, "post", return_value=mock_response) as mock_post:
         query = "query { invalid }"
 
         with pytest.raises(ValueError, match="GraphQL errors"):
@@ -126,21 +111,16 @@ async def test_execute_query_primary_rate_limit(client: GitHubGraphQLClient) -> 
     success_response.raise_for_status = MagicMock()
 
     with (
-        patch("httpx.AsyncClient") as mock_client_class,
+        patch.object(
+            client.client, "post", side_effect=[rate_limited_response, success_response]
+        ) as mock_post,
         patch("asyncio.sleep") as mock_sleep,
     ):
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.post = AsyncMock(
-            side_effect=[rate_limited_response, success_response]
-        )
-        mock_client_class.return_value = mock_client
-
         query = "query { test }"
         result = await client.execute_query(query)
 
         assert result == {"test": "success"}
-        assert mock_client.post.call_count == 2
+        assert mock_post.call_count == 2
         assert mock_sleep.call_count >= 1  # At least one sleep for rate limit
 
 
@@ -162,21 +142,16 @@ async def test_execute_query_secondary_rate_limit(client: GitHubGraphQLClient) -
     success_response.raise_for_status = MagicMock()
 
     with (
-        patch("httpx.AsyncClient") as mock_client_class,
+        patch.object(
+            client.client, "post", side_effect=[rate_limited_response, success_response]
+        ) as mock_post,
         patch("asyncio.sleep") as mock_sleep,
     ):
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.post = AsyncMock(
-            side_effect=[rate_limited_response, success_response]
-        )
-        mock_client_class.return_value = mock_client
-
         query = "query { test }"
         result = await client.execute_query(query)
 
         assert result == {"test": "success"}
-        assert mock_client.post.call_count == 2
+        assert mock_post.call_count == 2
         mock_sleep.assert_called_with(30)
 
 
@@ -194,19 +169,14 @@ async def test_execute_query_max_retries_exceeded(client: GitHubGraphQLClient) -
     mock_response.json = MagicMock()  # Not called since raise_for_status fails
 
     with (
-        patch("httpx.AsyncClient") as mock_client_class,
+        patch.object(client.client, "post", return_value=mock_response) as mock_post,
         patch("asyncio.sleep") as mock_sleep,
     ):
-        mock_client = AsyncMock()
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client_class.return_value = mock_client
-
         query = "query { test }"
 
         with pytest.raises(HTTPStatusError):
             await client.execute_query(query)
 
         # Should attempt 5 times (max_retries)
-        assert mock_client.post.call_count == 5
+        assert mock_post.call_count == 5
         assert mock_sleep.call_count == 4  # 4 retries

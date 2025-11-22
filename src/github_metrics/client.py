@@ -26,6 +26,10 @@ class GitHubGraphQLClient:
             "Authorization": f"Bearer {settings.github_token}",
             "Content-Type": "application/json",
         }
+        self.client = httpx.AsyncClient(
+            headers=self.headers,
+            timeout=self.settings.github_api_timeout,
+        )
 
     async def execute_query(
         self, query: str, variables: dict[str, Any] | None = None
@@ -58,52 +62,49 @@ class GitHubGraphQLClient:
         base_delay = 1.0  # seconds
 
         for attempt in range(max_retries):
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.api_url,
-                    json=payload,
-                    headers=self.headers,
-                    timeout=self.settings.github_api_timeout,
-                )
+            response = await self.client.post(
+                self.api_url,
+                json=payload,
+            )
 
-                # Check for rate limiting before processing response
-                rate_limited = await self._handle_rate_limits(response)
-                if rate_limited:
-                    # If rate limited, sleep and retry
-                    continue
+            # Check for rate limiting before processing response
+            rate_limited = await self._handle_rate_limits(response)
+            if rate_limited:
+                # If rate limited, sleep and retry
+                continue
 
-                try:
-                    response.raise_for_status()
-                except httpx.HTTPStatusError as e:
-                    if attempt == max_retries - 1:
-                        logger.error(
-                            "Query failed after all retries",
-                            attempt=attempt + 1,
-                            max_retries=max_retries,
-                            error=str(e),
-                        )
-                        raise
-
-                    delay = base_delay * (2**attempt)  # Exponential backoff
-                    logger.warning(
-                        "Query attempt failed, retrying",
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if attempt == max_retries - 1:
+                    logger.error(
+                        "Query failed after all retries",
                         attempt=attempt + 1,
                         max_retries=max_retries,
-                        delay=delay,
                         error=str(e),
                     )
-                    await asyncio.sleep(delay)
-                    continue
+                    raise
 
-                data = response.json()
+                delay = base_delay * (2**attempt)  # Exponential backoff
+                logger.warning(
+                    "Query attempt failed, retrying",
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    delay=delay,
+                    error=str(e),
+                )
+                await asyncio.sleep(delay)
+                continue
 
-                if "errors" in data:
-                    logger.error("GraphQL query returned errors", errors=data["errors"])
-                    raise ValueError(f"GraphQL errors: {data['errors']}")
+            data = response.json()
 
-                logger.debug("GraphQL query executed successfully")
-                result: dict[str, Any] = data.get("data", {})
-                return result
+            if "errors" in data:
+                logger.error("GraphQL query returned errors", errors=data["errors"])
+                raise ValueError(f"GraphQL errors: {data['errors']}")
+
+            logger.debug("GraphQL query executed successfully")
+            result: dict[str, Any] = data.get("data", {})
+            return result
 
         # If we get here, all retries failed
         raise RuntimeError(f"Query failed after {max_retries} attempts")
@@ -175,3 +176,7 @@ class GitHubGraphQLClient:
                 pass  # Ignore JSON parsing errors
 
         return False
+
+    async def close(self) -> None:
+        """Close the HTTP client."""
+        await self.client.aclose()

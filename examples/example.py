@@ -140,6 +140,9 @@ async def main() -> None:
         print(f"\n❌ Unexpected error: {e}")
         raise
 
+    finally:
+        await collector.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
