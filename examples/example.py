@@ -21,17 +21,24 @@ async def main() -> None:
     collector = MetricsCollector(settings)
 
     # Define the time period for metrics collection
-    # Example: last 30 days
+    # Example: last 7 days
     end_date = datetime.now(UTC)
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=7)
 
     # Repository to collect metrics from
     # Update these with your repository details
     owner = "octocat"  # e.g., "octocat"
     repo = "Hello-World"  # e.g., "Hello-World"
 
+    # Optional: filter by target branch
+    # Set to None to collect PRs for all branches
+    # Set to specific branch name (e.g., "main", "develop") to filter
+    base_branch = None  # e.g., "main" or "develop"
+
     print(f"\nCollecting PR metrics for {owner}/{repo}")
     print(f"Period: {start_date.date()} to {end_date.date()}")
+    if base_branch:
+        print(f"Target branch: {base_branch}")
     print("-" * 60)
 
     try:
@@ -41,6 +48,7 @@ async def main() -> None:
             repo=repo,
             start_date=start_date,
             end_date=end_date,
+            base_branch=base_branch,
         )
 
         # Display summary

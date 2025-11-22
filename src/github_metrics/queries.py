@@ -25,7 +25,9 @@ query GetPullRequests(
                 title
                 url
                 isDraft
+                baseRefName
                 createdAt
+                updatedAt
                 closedAt
                 mergedAt
                 body

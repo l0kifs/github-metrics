@@ -11,7 +11,9 @@
 - **Асинхронный сбор метрик**: Полная поддержка async/await
 - **GitHub GraphQL API**: Использование эффективного GraphQL API вместо REST
 - **Фильтрация по времени**: Сбор метрик за указанный период времени
+- **Фильтрация по ветке**: Возможность фильтровать PR по целевой ветке (main, develop и т.д.)
 - **Детальная информация по PR**: 
+  - Целевая ветка (base branch)
   - Количество изменений (additions + deletions)
   - Время нахождения PR на ревью
   - Количество коммитов
@@ -68,7 +70,7 @@ GITHUB_METRICS__LOGGING_LEVEL=INFO  # опционально
 
 ```python
 import asyncio
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from github_metrics import MetricsCollector, get_settings
 
 async def main():
@@ -79,15 +81,18 @@ async def main():
     collector = MetricsCollector(settings)
     
     # Определение периода (например, последние 30 дней)
-    end_date = datetime.now()
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=30)
     
     # Сбор метрик
+    # Можно указать целевую ветку (base_branch) для фильтрации
+    # Например: base_branch="main" или base_branch="develop"
     metrics = await collector.collect_pr_metrics(
-        owner="owner",
-        repo="repository",
+        owner="octocat",
+        repo="Hello-World",
         start_date=start_date,
         end_date=end_date,
+        base_branch=None,  # None = все ветки
     )
     
     # Использование результатов
@@ -117,6 +122,7 @@ from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics
 for pr in metrics.pull_requests:
     # Основная информация
     print(pr.number, pr.title, pr.url)
+    print(f"Target branch: {pr.base_branch}")
     print(pr.author.login, pr.author.name)
     
     # Даты
@@ -156,6 +162,7 @@ for pr in metrics.pull_requests:
 - `number: int` - номер PR
 - `title: str` - заголовок PR
 - `url: str` - URL PR
+- `base_branch: str` - целевая ветка PR
 - `author: User` - автор PR
 - `created_at: datetime` - дата создания
 - `closed_at: datetime` - дата закрытия

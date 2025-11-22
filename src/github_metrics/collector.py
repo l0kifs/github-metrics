@@ -31,6 +31,7 @@ class MetricsCollector:
         repo: str,
         start_date: datetime,
         end_date: datetime,
+        base_branch: str | None = None,
     ) -> RepositoryMetrics:
         """
         Collect PR metrics for a repository within a time period.
@@ -40,6 +41,7 @@ class MetricsCollector:
             repo: Repository name
             start_date: Start of the period (inclusive)
             end_date: End of the period (inclusive)
+            base_branch: Optional target branch filter (e.g., 'main', 'develop')
 
         Returns:
             Repository metrics containing all PRs closed in the period
@@ -50,6 +52,7 @@ class MetricsCollector:
             repo=repo,
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
+            base_branch=base_branch,
         )
 
         # Ensure dates are timezone-aware
@@ -86,28 +89,26 @@ class MetricsCollector:
                     logger.debug("Skipping draft PR", pr_number=pr_node.get("number"))
                     continue
 
-                # Parse closed_at
-                closed_at_str = pr_node.get("closedAt")
-                if not closed_at_str:
+                # Parse updated_at for pagination
+                updated_at_str = pr_node.get("updatedAt")
+                if not updated_at_str:
                     continue
+                updated_at = datetime.fromisoformat(
+                    updated_at_str.replace("Z", "+00:00")
+                )
 
-                closed_at = datetime.fromisoformat(closed_at_str.replace("Z", "+00:00"))
+                # If PR was last updated before start_date, since we're sorting
+                # by UPDATED_AT DESC, we can stop pagination
+                if updated_at < start_date:
+                    logger.debug(
+                        "PR last updated before start date, stopping pagination",
+                        pr_number=pr_node.get("number"),
+                        updated_at=updated_at.isoformat(),
+                    )
+                    has_next_page = False
+                    break
 
-                # Filter by date range
-                if not (start_date <= closed_at <= end_date):
-                    # If PR is older than start_date and we're sorting
-                    # by updated_at DESC, we can stop pagination
-                    if closed_at < start_date:
-                        logger.debug(
-                            "PR closed before start date, stopping pagination",
-                            pr_number=pr_node.get("number"),
-                            closed_at=closed_at.isoformat(),
-                        )
-                        has_next_page = False
-                        break
-                    continue
-
-                # Parse PR metrics
+                # Parse PR metrics (we'll filter by closed_at later)
                 pr_metrics = self._parse_pr_metrics(pr_node)
                 pull_requests.append(pr_metrics)
                 logger.debug(
@@ -122,9 +123,18 @@ class MetricsCollector:
             else:
                 has_next_page = False
 
+        # Filter collected PRs by closed_at date range and optionally by base branch
+        filtered_pull_requests = [
+            pr
+            for pr in pull_requests
+            if start_date <= pr.closed_at <= end_date
+            and (base_branch is None or pr.base_branch == base_branch)
+        ]
+
         logger.info(
             "Completed PR metrics collection",
-            total_prs=len(pull_requests),
+            total_collected=len(pull_requests),
+            total_filtered=len(filtered_pull_requests),
             owner=owner,
             repo=repo,
         )
@@ -133,7 +143,7 @@ class MetricsCollector:
             repository=f"{owner}/{repo}",
             period_start=start_date,
             period_end=end_date,
-            pull_requests=pull_requests,
+            pull_requests=filtered_pull_requests,
         )
 
     def _parse_pr_metrics(self, pr_node: dict[str, Any]) -> PRMetrics:
@@ -150,9 +160,10 @@ class MetricsCollector:
         number = pr_node.get("number", 0)
         title = pr_node.get("title", "")
         url = pr_node.get("url", "")
+        base_branch = pr_node.get("baseRefName", "unknown")
 
         # Author
-        author_data = pr_node.get("author", {})
+        author_data = pr_node.get("author") or {}
         author = User(
             login=author_data.get("login", "unknown"),
             name=author_data.get("name"),
@@ -227,6 +238,7 @@ class MetricsCollector:
             number=number,
             title=title,
             url=url,
+            base_branch=base_branch,
             author=author,
             created_at=created_at,
             closed_at=closed_at,

@@ -27,6 +27,7 @@ class PRMetrics(BaseModel):
     number: int = Field(..., description="PR number")
     title: str = Field(..., description="PR title")
     url: str = Field(..., description="PR URL")
+    base_branch: str = Field(..., description="Target branch for the PR")
     author: User = Field(..., description="PR author")
     created_at: datetime = Field(..., description="PR creation timestamp")
     closed_at: datetime = Field(..., description="PR closure timestamp")
