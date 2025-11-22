@@ -40,6 +40,10 @@ class Settings(BaseSettings):
         default=120.0,
         description="GitHub API request timeout in seconds",
     )
+    github_page_size: int = Field(
+        default=100,
+        description="Number of items to fetch per page in GitHub API requests",
+    )
 
 
 def get_settings() -> Settings:

@@ -75,7 +75,7 @@ class MetricsCollector:
                 "repo": repo,
                 "states": ["CLOSED", "MERGED"],
                 "after": cursor,
-                "first": 100,
+                "first": self.client.settings.github_page_size,
             }
 
             data = await self.client.execute_query(

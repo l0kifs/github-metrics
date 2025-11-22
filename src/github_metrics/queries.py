@@ -7,7 +7,7 @@ query GetPullRequests(
     $repo: String!
     $states: [PullRequestState!]
     $after: String
-    $first: Int = 100
+    $first: Int!
 ) {
     repository(owner: $owner, name: $repo) {
         pullRequests(
