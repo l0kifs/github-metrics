@@ -15,9 +15,7 @@ class Settings(BaseSettings):
     )
 
     # Application settings
-    app_name: str = Field(
-        default="github-metrics", description="Application name"
-    )
+    app_name: str = Field(default="github-metrics", description="Application name")
     app_version: str = Field(default="0.1.0", description="Application version")
 
     # Logging settings
@@ -25,6 +23,15 @@ class Settings(BaseSettings):
     logging_format: str = Field(
         default="{time:YYYY-MM-DD HH:mm:ss} | {extra[app]} v{extra[version]} | {level: <8} | {name}:{function}:{line} - {message} | {extra}",
         description="Console log format",
+    )
+
+    # GitHub API settings
+    github_token: str = Field(
+        default="", description="GitHub Personal Access Token for API authentication"
+    )
+    github_api_url: str = Field(
+        default="https://api.github.com/graphql",
+        description="GitHub GraphQL API URL",
     )
 
 

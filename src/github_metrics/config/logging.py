@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-from github_metrics.settings import get_settings
+from github_metrics.config.settings import get_settings
 
 settings = get_settings()
 
