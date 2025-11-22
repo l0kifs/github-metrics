@@ -1,6 +1,6 @@
 """Tests for metrics collector."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,7 +11,7 @@ from github_metrics.models import PRResolution
 
 
 @pytest.fixture
-def settings():
+def settings() -> Settings:
     """Create test settings."""
     return Settings(
         github_token="test_token",
@@ -20,13 +20,13 @@ def settings():
 
 
 @pytest.fixture
-def collector(settings):
+def collector(settings: Settings) -> MetricsCollector:
     """Create test collector."""
     return MetricsCollector(settings)
 
 
 @pytest.mark.asyncio
-async def test_collect_pr_metrics_basic(collector):
+async def test_collect_pr_metrics_basic(collector: MetricsCollector) -> None:
     """Test basic PR metrics collection."""
     # Mock GraphQL response
     mock_data = {
@@ -68,8 +68,8 @@ async def test_collect_pr_metrics_basic(collector):
     with patch.object(
         collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
     ):
-        start_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        end_date = datetime(2024, 1, 31, tzinfo=timezone.utc)
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
 
         metrics = await collector.collect_pr_metrics(
             owner="owner",
@@ -94,7 +94,7 @@ async def test_collect_pr_metrics_basic(collector):
 
 
 @pytest.mark.asyncio
-async def test_collect_pr_metrics_skips_drafts(collector):
+async def test_collect_pr_metrics_skips_drafts(collector: MetricsCollector) -> None:
     """Test that draft PRs are skipped."""
     mock_data = {
         "repository": {
@@ -128,8 +128,8 @@ async def test_collect_pr_metrics_skips_drafts(collector):
     with patch.object(
         collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
     ):
-        start_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        end_date = datetime(2024, 1, 31, tzinfo=timezone.utc)
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
 
         metrics = await collector.collect_pr_metrics(
             owner="owner",
@@ -142,7 +142,9 @@ async def test_collect_pr_metrics_skips_drafts(collector):
 
 
 @pytest.mark.asyncio
-async def test_collect_pr_metrics_filters_by_date(collector):
+async def test_collect_pr_metrics_filters_by_date(
+    collector: MetricsCollector,
+) -> None:
     """Test that PRs are filtered by date range."""
     mock_data = {
         "repository": {
@@ -195,8 +197,8 @@ async def test_collect_pr_metrics_filters_by_date(collector):
     with patch.object(
         collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
     ):
-        start_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        end_date = datetime(2024, 1, 31, tzinfo=timezone.utc)
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
 
         metrics = await collector.collect_pr_metrics(
             owner="owner",
@@ -211,7 +213,9 @@ async def test_collect_pr_metrics_filters_by_date(collector):
 
 
 @pytest.mark.asyncio
-async def test_parse_pr_metrics_closed_not_merged(collector):
+async def test_parse_pr_metrics_closed_not_merged(
+    collector: MetricsCollector,
+) -> None:
     """Test parsing PR that was closed but not merged."""
     pr_node = {
         "number": 1,

@@ -67,4 +67,5 @@ class GitHubGraphQLClient:
                 raise ValueError(f"GraphQL errors: {data['errors']}")
 
             logger.debug("GraphQL query executed successfully")
-            return data.get("data", {})
+            result: dict[str, Any] = data.get("data", {})
+            return result

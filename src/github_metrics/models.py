@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +17,7 @@ class User(BaseModel):
     """GitHub user information."""
 
     login: str = Field(..., description="GitHub username")
-    name: Optional[str] = Field(None, description="User's display name")
+    name: str | None = Field(None, description="User's display name")
 
 
 class PRMetrics(BaseModel):
@@ -31,7 +30,7 @@ class PRMetrics(BaseModel):
     author: User = Field(..., description="PR author")
     created_at: datetime = Field(..., description="PR creation timestamp")
     closed_at: datetime = Field(..., description="PR closure timestamp")
-    merged_at: Optional[datetime] = Field(None, description="PR merge timestamp")
+    merged_at: datetime | None = Field(None, description="PR merge timestamp")
 
     # Resolution
     resolution: PRResolution = Field(

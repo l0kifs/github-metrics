@@ -1,7 +1,7 @@
 """Example usage of github-metrics library."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from github_metrics import MetricsCollector, get_settings
 from github_metrics.config.logging import setup_logging
@@ -18,9 +18,7 @@ async def main() -> None:
     collector = MetricsCollector(settings)
 
     # Define time period (last 30 days)
-    from datetime import timezone
-
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=30)
 
     # Example: Collect metrics for a repository

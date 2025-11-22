@@ -21,7 +21,10 @@ class Settings(BaseSettings):
     # Logging settings
     logging_level: str = Field(default="INFO", description="Logging level")
     logging_format: str = Field(
-        default="{time:YYYY-MM-DD HH:mm:ss} | {extra[app]} v{extra[version]} | {level: <8} | {name}:{function}:{line} - {message} | {extra}",
+        default=(
+            "{time:YYYY-MM-DD HH:mm:ss} | {extra[app]} v{extra[version]} | "
+            "{level: <8} | {name}:{function}:{line} - {message} | {extra}"
+        ),
         description="Console log format",
     )
 

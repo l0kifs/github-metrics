@@ -1,36 +1,35 @@
 """Tests for data models."""
 
-from datetime import datetime, timezone
-
+from datetime import UTC, datetime
 
 from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics, User
 
 
-def test_user_model():
+def test_user_model() -> None:
     """Test User model."""
     user = User(login="testuser", name="Test User")
     assert user.login == "testuser"
     assert user.name == "Test User"
 
 
-def test_user_model_without_name():
+def test_user_model_without_name() -> None:
     """Test User model without name."""
-    user = User(login="testuser")
+    user = User(login="testuser", name=None)
     assert user.login == "testuser"
     assert user.name is None
 
 
-def test_pr_resolution_enum():
+def test_pr_resolution_enum() -> None:
     """Test PRResolution enum."""
-    assert PRResolution.MERGED == "merged"
-    assert PRResolution.CLOSED_NOT_MERGED == "closed_not_merged"
+    assert PRResolution.MERGED.value == "merged"
+    assert PRResolution.CLOSED_NOT_MERGED.value == "closed_not_merged"
 
 
-def test_pr_metrics_model():
+def test_pr_metrics_model() -> None:
     """Test PRMetrics model."""
-    created = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    closed = datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
-    merged = datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
+    created = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+    closed = datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC)
+    merged = datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC)
 
     author = User(login="author", name="Author Name")
     approver = User(login="approver", name="Approver Name")
@@ -66,19 +65,19 @@ def test_pr_metrics_model():
     assert len(pr.labels) == 2
 
 
-def test_repository_metrics_model():
+def test_repository_metrics_model() -> None:
     """Test RepositoryMetrics model."""
-    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    end = datetime(2024, 1, 31, tzinfo=timezone.utc)
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 31, tzinfo=UTC)
 
-    created1 = datetime(2024, 1, 10, 12, 0, 0, tzinfo=timezone.utc)
-    closed1 = datetime(2024, 1, 11, 12, 0, 0, tzinfo=timezone.utc)
-    merged1 = datetime(2024, 1, 11, 12, 0, 0, tzinfo=timezone.utc)
+    created1 = datetime(2024, 1, 10, 12, 0, 0, tzinfo=UTC)
+    closed1 = datetime(2024, 1, 11, 12, 0, 0, tzinfo=UTC)
+    merged1 = datetime(2024, 1, 11, 12, 0, 0, tzinfo=UTC)
 
-    created2 = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-    closed2 = datetime(2024, 1, 16, 12, 0, 0, tzinfo=timezone.utc)
+    created2 = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
+    closed2 = datetime(2024, 1, 16, 12, 0, 0, tzinfo=UTC)
 
-    author = User(login="author")
+    author = User(login="author", name=None)
 
     pr1 = PRMetrics(
         number=1,
