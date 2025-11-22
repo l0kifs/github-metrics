@@ -1,6 +1,6 @@
 """GitHub metrics collector service."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from loguru import logger
@@ -52,9 +52,9 @@ class MetricsCollector:
 
         # Ensure dates are timezone-aware
         if start_date.tzinfo is None:
-            start_date = start_date.replace(tzinfo=timezone.utc)
+            start_date = start_date.replace(tzinfo=UTC)
         if end_date.tzinfo is None:
-            end_date = end_date.replace(tzinfo=timezone.utc)
+            end_date = end_date.replace(tzinfo=UTC)
 
         pull_requests: list[PRMetrics] = []
         has_next_page = True
@@ -93,8 +93,8 @@ class MetricsCollector:
 
                 # Filter by date range
                 if not (start_date <= closed_at <= end_date):
-                    # If PR is older than start_date and we're sorting by updated_at DESC,
-                    # we can stop pagination
+                    # If PR is older than start_date and we're sorting
+                    # by updated_at DESC, we can stop pagination
                     if closed_at < start_date:
                         logger.debug(
                             "PR closed before start date, stopping pagination",

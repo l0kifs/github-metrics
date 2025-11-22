@@ -1,14 +1,15 @@
 """Tests for GitHub GraphQL client."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from github_metrics.client import GitHubGraphQLClient
 from github_metrics.config.settings import Settings
 
 
 @pytest.fixture
-def settings():
+def settings() -> Settings:
     """Create test settings."""
     return Settings(
         github_token="test_token",
@@ -17,12 +18,12 @@ def settings():
 
 
 @pytest.fixture
-def client(settings):
+def client(settings: Settings) -> GitHubGraphQLClient:
     """Create test client."""
     return GitHubGraphQLClient(settings)
 
 
-def test_client_initialization(client, settings):
+def test_client_initialization(client: GitHubGraphQLClient, settings: Settings) -> None:
     """Test client initialization."""
     assert client.api_url == settings.github_api_url
     assert client.headers["Authorization"] == f"Bearer {settings.github_token}"
@@ -30,7 +31,7 @@ def test_client_initialization(client, settings):
 
 
 @pytest.mark.asyncio
-async def test_execute_query_success(client):
+async def test_execute_query_success(client: GitHubGraphQLClient) -> None:
     """Test successful query execution."""
     mock_response = MagicMock()
     mock_response.json.return_value = {"data": {"repository": {"name": "test-repo"}}}
@@ -50,7 +51,7 @@ async def test_execute_query_success(client):
 
 
 @pytest.mark.asyncio
-async def test_execute_query_with_variables(client):
+async def test_execute_query_with_variables(client: GitHubGraphQLClient) -> None:
     """Test query execution with variables."""
     mock_response = MagicMock()
     mock_response.json.return_value = {"data": {"test": "result"}}
@@ -72,7 +73,7 @@ async def test_execute_query_with_variables(client):
 
 
 @pytest.mark.asyncio
-async def test_execute_query_with_errors(client):
+async def test_execute_query_with_errors(client: GitHubGraphQLClient) -> None:
     """Test query execution with GraphQL errors."""
     mock_response = MagicMock()
     mock_response.json.return_value = {

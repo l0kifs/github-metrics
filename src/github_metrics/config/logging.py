@@ -7,7 +7,7 @@ from github_metrics.config.settings import get_settings
 settings = get_settings()
 
 
-def setup_logging():
+def setup_logging() -> None:
     """
     Configure logging for the application.
     """
