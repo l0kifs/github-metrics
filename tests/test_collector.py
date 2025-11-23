@@ -486,3 +486,33 @@ async def test_collect_pr_metrics_calculates_review_time_with_reopenings(
         pr = metrics.pull_requests[0]
         # Should be 4 hours: 2 hours (10-12) + 2 hours (14-16)
         assert pr.review_time_hours == 4.0
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_invalid_owner(collector: MetricsCollector) -> None:
+    """Test that collect_pr_metrics raises ValueError for invalid owner format."""
+    start_date = datetime(2024, 1, 1, tzinfo=UTC)
+    end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match="Invalid owner"):
+        await collector.collect_pr_metrics(
+            owner="invalid@owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_invalid_repo(collector: MetricsCollector) -> None:
+    """Test that collect_pr_metrics raises ValueError for invalid repo format."""
+    start_date = datetime(2024, 1, 1, tzinfo=UTC)
+    end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match="Invalid repo"):
+        await collector.collect_pr_metrics(
+            owner="owner",
+            repo="invalid/repo",
+            start_date=start_date,
+            end_date=end_date,
+        )

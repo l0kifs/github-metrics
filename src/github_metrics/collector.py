@@ -1,5 +1,6 @@
 """GitHub metrics collector service."""
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -56,6 +57,18 @@ class MetricsCollector:
             end_date=end_date.isoformat(),
             base_branch=base_branch,
         )
+
+        # Validate owner and repo format
+        if not re.match(r"^[a-zA-Z0-9_-]+$", owner):
+            raise ValueError(
+                f"Invalid owner: '{owner}'. "
+                "Must be alphanumeric, dashes, underscores only."
+            )
+        if not re.match(r"^[a-zA-Z0-9_-]+$", repo):
+            raise ValueError(
+                f"Invalid repo: '{repo}'. "
+                "Must be alphanumeric, dashes, underscores only."
+            )
 
         # Ensure dates are timezone-aware
         if start_date.tzinfo is None:
