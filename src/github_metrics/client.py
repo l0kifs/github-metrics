@@ -106,8 +106,12 @@ class GitHubGraphQLClient:
             data = response.json()
 
             if "errors" in data:
-                logger.error("GraphQL query returned errors", errors=data["errors"])
-                raise ValueError(f"GraphQL errors: {data['errors']}")
+                error_messages = [
+                    error.get("message", "Unknown error") for error in data["errors"]
+                ]
+                error_summary = "; ".join(error_messages)
+                logger.error("GraphQL query returned errors", errors=error_summary)
+                raise ValueError(f"GraphQL errors: {error_summary}")
 
             logger.debug("GraphQL query executed successfully")
             result: dict[str, Any] = data.get("data", {})
