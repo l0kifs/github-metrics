@@ -113,8 +113,10 @@ class GitHubGraphQLClient:
                 logger.error("GraphQL query returned errors", errors=error_summary)
                 raise ValueError(f"GraphQL errors: {error_summary}")
 
-            logger.debug("GraphQL query executed successfully")
             result: dict[str, Any] = data.get("data", {})
+            logger.debug(
+                "GraphQL query executed successfully", response_keys=list(result.keys())
+            )
             return result
 
         # If we get here, all retries failed

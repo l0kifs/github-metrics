@@ -82,3 +82,7 @@ ignore = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["github_metrics"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include_package_data = true
