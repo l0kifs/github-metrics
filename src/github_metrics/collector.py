@@ -113,13 +113,22 @@ class MetricsCollector:
                     break
 
                 # Parse PR metrics (we'll filter by closed_at later)
-                pr_metrics = self._parse_pr_metrics(pr_node)
-                pull_requests.append(pr_metrics)
-                logger.debug(
-                    "Collected PR metrics",
-                    pr_number=pr_metrics.number,
-                    resolution=pr_metrics.resolution,
-                )
+                try:
+                    pr_metrics = self._parse_pr_metrics(pr_node)
+                    pull_requests.append(pr_metrics)
+                    logger.debug(
+                        "Collected PR metrics",
+                        pr_number=pr_metrics.number,
+                        resolution=pr_metrics.resolution,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to parse PR metrics, skipping PR",
+                        pr_number=pr_node.get("number"),
+                        error=str(e),
+                        exc_info=True,
+                    )
+                    continue
 
             # Check for next page
             if page_info.get("hasNextPage", False):

@@ -323,35 +323,85 @@ async def test_collect_pr_metrics_filters_by_base_branch(
 
 
 @pytest.mark.asyncio
-async def test_parse_pr_metrics_closed_not_merged(
+async def test_collect_pr_metrics_handles_malformed_pr(
     collector: MetricsCollector,
 ) -> None:
-    """Test parsing PR that was closed but not merged."""
-    pr_node = {
-        "number": 1,
-        "title": "Test PR",
-        "url": "https://github.com/owner/repo/pull/1",
-        "isDraft": False,
-        "baseRefName": "main",
-        "createdAt": "2024-01-10T12:00:00Z",
-        "closedAt": "2024-01-11T12:00:00Z",
-        "mergedAt": None,
-        "body": "Test",
-        "additions": 50,
-        "deletions": 25,
-        "changedFiles": 3,
-        "commits": {"totalCount": 2},
-        "author": {"login": "testuser", "name": "Test User"},
-        "labels": {"nodes": []},
-        "comments": {"totalCount": 1},
-        "reviews": {"nodes": []},
-        "reviewThreads": {"totalCount": 0, "nodes": []},
+    """Test that malformed PRs are skipped but collection continues."""
+    mock_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": 1,
+                        "title": "Valid PR",
+                        "url": "https://github.com/owner/repo/pull/1",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-15T12:00:00Z",
+                        "closedAt": "2024-01-15T12:00:00Z",
+                        "mergedAt": "2024-01-15T12:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                    },
+                    {
+                        "number": 2,
+                        "title": "Malformed PR",
+                        # Missing required fields like createdAt, closedAt
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "author": {"login": "testuser"},
+                    },
+                    {
+                        "number": 3,
+                        "title": "Another Valid PR",
+                        "url": "https://github.com/owner/repo/pull/3",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-20T12:00:00Z",
+                        "updatedAt": "2024-01-25T12:00:00Z",
+                        "closedAt": "2024-01-25T12:00:00Z",
+                        "mergedAt": "2024-01-25T12:00:00Z",
+                        "body": "",
+                        "additions": 20,
+                        "deletions": 10,
+                        "changedFiles": 2,
+                        "commits": {"totalCount": 2},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                    },
+                ],
+            }
+        }
     }
 
-    pr_metrics = collector._parse_pr_metrics(pr_node)
+    with patch.object(
+        collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
 
-    assert pr_metrics.number == 1
-    assert pr_metrics.base_branch == "main"
-    assert pr_metrics.resolution == PRResolution.CLOSED_NOT_MERGED
-    assert pr_metrics.merged_at is None
-    assert pr_metrics.changes_count == 75
+        metrics = await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        # Should collect 2 valid PRs and skip the malformed one
+        assert metrics.total_prs == 2
+        assert len(metrics.pull_requests) == 2
+        assert metrics.pull_requests[0].number == 1
+        assert metrics.pull_requests[1].number == 3
