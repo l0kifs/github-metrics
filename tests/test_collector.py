@@ -61,6 +61,7 @@ async def test_collect_pr_metrics_basic(collector: MetricsCollector) -> None:
                             ]
                         },
                         "reviewThreads": {"totalCount": 1, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     }
                 ],
             }
@@ -123,7 +124,8 @@ async def test_collect_pr_metrics_skips_drafts(collector: MetricsCollector) -> N
                         "labels": {"nodes": []},
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
-                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "reviewThreads": {"totalCount": 1, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     }
                 ],
             }
@@ -176,6 +178,7 @@ async def test_collect_pr_metrics_filters_by_date(
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
                         "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     },
                     {
                         "number": 2,
@@ -197,6 +200,7 @@ async def test_collect_pr_metrics_filters_by_date(
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
                         "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     },
                 ],
             }
@@ -251,6 +255,7 @@ async def test_collect_pr_metrics_filters_by_base_branch(
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
                         "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     },
                     {
                         "number": 2,
@@ -272,6 +277,7 @@ async def test_collect_pr_metrics_filters_by_base_branch(
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
                         "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     },
                 ],
             }
@@ -352,6 +358,7 @@ async def test_collect_pr_metrics_handles_malformed_pr(
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
                         "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     },
                     {
                         "number": 2,
@@ -381,6 +388,7 @@ async def test_collect_pr_metrics_handles_malformed_pr(
                         "comments": {"totalCount": 0},
                         "reviews": {"nodes": []},
                         "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
                     },
                 ],
             }
@@ -405,3 +413,76 @@ async def test_collect_pr_metrics_handles_malformed_pr(
         assert len(metrics.pull_requests) == 2
         assert metrics.pull_requests[0].number == 1
         assert metrics.pull_requests[1].number == 3
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_calculates_review_time_with_reopenings(
+    collector: MetricsCollector,
+) -> None:
+    """Test that review time accounts for PR reopenings."""
+    # PR created at 10:00, closed at 12:00 (2 hours open)
+    # Then reopened at 14:00, closed again at 16:00 (2 more hours open)
+    # Total review time should be 4 hours, not 6 hours (16:00 - 10:00)
+    mock_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": 1,
+                        "title": "PR with reopenings",
+                        "url": "https://github.com/owner/repo/pull/1",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T10:00:00Z",
+                        "updatedAt": "2024-01-10T16:00:00Z",
+                        "closedAt": "2024-01-10T16:00:00Z",
+                        "mergedAt": "2024-01-10T16:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "__typename": "ClosedEvent",
+                                    "createdAt": "2024-01-10T12:00:00Z",
+                                },
+                                {
+                                    "__typename": "ReopenedEvent",
+                                    "createdAt": "2024-01-10T14:00:00Z",
+                                },
+                                {
+                                    "__typename": "ClosedEvent",
+                                    "createdAt": "2024-01-10T16:00:00Z",
+                                },
+                            ]
+                        },
+                    }
+                ],
+            }
+        }
+    }
+
+    with patch.object(
+        collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        metrics = await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        pr = metrics.pull_requests[0]
+        # Should be 4 hours: 2 hours (10-12) + 2 hours (14-16)
+        assert pr.review_time_hours == 4.0

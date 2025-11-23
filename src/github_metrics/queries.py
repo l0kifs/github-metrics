@@ -70,6 +70,17 @@ query GetPullRequests(
                         }
                     }
                 }
+                timelineItems(first: 100, itemTypes: [CLOSED_EVENT, REOPENED_EVENT]) {
+                    nodes {
+                        __typename
+                        ... on ClosedEvent {
+                            createdAt
+                        }
+                        ... on ReopenedEvent {
+                            createdAt
+                        }
+                    }
+                }
             }
         }
     }

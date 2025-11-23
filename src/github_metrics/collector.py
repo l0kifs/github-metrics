@@ -209,8 +209,44 @@ class MetricsCollector:
         deletions = pr_node.get("deletions", 0)
         changes_count = additions + deletions
 
-        # Review time (from creation to closure)
-        review_time_hours = (closed_at - created_at).total_seconds() / 3600
+        # Review time (from creation to closure, accounting for reopenings)
+        timeline_items = pr_node.get("timelineItems", {}).get("nodes", [])
+
+        # Sort timeline events by createdAt
+        events = []
+        for item in timeline_items:
+            event_type = item.get("__typename")
+            if event_type in ["ClosedEvent", "ReopenedEvent"]:
+                events.append(
+                    {
+                        "type": event_type,
+                        "timestamp": datetime.fromisoformat(
+                            item.get("createdAt", "").replace("Z", "+00:00")
+                        ),
+                    }
+                )
+
+        events.sort(key=lambda x: x["timestamp"])
+
+        # Calculate review time: sum of periods when PR was open
+        review_time_hours = 0.0
+        current_open_start: datetime | None = created_at
+
+        for event in events:
+            if event["type"] == "ClosedEvent":
+                # PR was closed, add time from open start to this close
+                review_time_hours += (
+                    event["timestamp"] - current_open_start
+                ).total_seconds() / 3600
+                current_open_start = None  # PR is now closed
+            elif event["type"] == "ReopenedEvent" and current_open_start is None:
+                # PR was reopened, start new open period
+                current_open_start = event["timestamp"]
+
+        # If PR ended open (but it shouldn't since we're looking at closed PRs),
+        # add remaining time
+        if current_open_start is not None:
+            review_time_hours += (closed_at - current_open_start).total_seconds() / 3600
 
         # Commits
         commits_count = pr_node.get("commits", {}).get("totalCount", 0)
