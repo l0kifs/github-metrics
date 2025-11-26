@@ -90,3 +90,31 @@ class RepositoryMetrics(BaseModel):
             for pr in self.pull_requests
             if pr.resolution == PRResolution.CLOSED_NOT_MERGED
         )
+
+
+class PytestInfo(BaseModel):
+    """Information about a single test function."""
+
+    filename: str = Field(..., description="Path to the test file")
+    test_name: str = Field(..., description="Name of the test function")
+
+
+class PytestMetrics(BaseModel):
+    """Metrics for test changes in a PR diff."""
+
+    new_tests: list[PytestInfo] = Field(
+        default_factory=list, description="List of newly added tests"
+    )
+    updated_tests: list[PytestInfo] = Field(
+        default_factory=list, description="List of updated/modified tests"
+    )
+
+    @property
+    def total_new(self) -> int:
+        """Total number of new tests."""
+        return len(self.new_tests)
+
+    @property
+    def total_updated(self) -> int:
+        """Total number of updated tests."""
+        return len(self.updated_tests)
