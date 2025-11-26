@@ -45,6 +45,8 @@ def test_pr_metrics_model() -> None:
         merged_at=merged,
         resolution=PRResolution.MERGED,
         changes_count=150,
+        additions_count=100,
+        deletions_count=50,
         review_time_hours=24.0,
         commits_count=5,
         review_comments_count=3,
@@ -60,6 +62,8 @@ def test_pr_metrics_model() -> None:
     assert pr.author.login == "author"
     assert pr.resolution == PRResolution.MERGED
     assert pr.changes_count == 150
+    assert pr.additions_count == 100
+    assert pr.deletions_count == 50
     assert pr.review_time_hours == 24.0
     assert len(pr.approvers) == 1
     assert pr.approvers[0].login == "approver"
@@ -91,6 +95,8 @@ def test_repository_metrics_model() -> None:
         merged_at=merged1,
         resolution=PRResolution.MERGED,
         changes_count=100,
+        additions_count=70,
+        deletions_count=30,
         review_time_hours=24.0,
         commits_count=3,
         review_comments_count=2,
@@ -108,6 +114,8 @@ def test_repository_metrics_model() -> None:
         merged_at=None,
         resolution=PRResolution.CLOSED_NOT_MERGED,
         changes_count=50,
+        additions_count=30,
+        deletions_count=20,
         review_time_hours=24.0,
         commits_count=2,
         review_comments_count=1,

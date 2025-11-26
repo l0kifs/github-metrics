@@ -92,6 +92,8 @@ async def test_collect_pr_metrics_basic(collector: MetricsCollector) -> None:
         assert pr.base_branch == "main"
         assert pr.resolution == PRResolution.MERGED
         assert pr.changes_count == 150
+        assert pr.additions_count == 100
+        assert pr.deletions_count == 50
         assert pr.commits_count == 3
         assert len(pr.approvers) == 1
         assert pr.approvers[0].login == "reviewer"

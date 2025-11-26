@@ -311,6 +311,8 @@ class MetricsCollector:
             merged_at=merged_at,
             resolution=resolution,
             changes_count=changes_count,
+            additions_count=additions,
+            deletions_count=deletions,
             review_time_hours=review_time_hours,
             commits_count=commits_count,
             review_comments_count=review_comments_count,

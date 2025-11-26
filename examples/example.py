@@ -88,6 +88,8 @@ async def main() -> None:
 
                 print("\n   Metrics:")
                 print(f"   - Changes: {pr.changes_count} lines")
+                print(f"   - Additions: +{pr.additions_count} lines")
+                print(f"   - Deletions: -{pr.deletions_count} lines")
                 print(f"   - Commits: {pr.commits_count}")
                 print(f"   - Review time: {pr.review_time_hours:.1f} hours")
                 print(f"   - Comments: {pr.comments_count}")

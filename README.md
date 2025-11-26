@@ -15,6 +15,8 @@
 - **Детальная информация по PR**: 
   - Целевая ветка (base branch)
   - Количество изменений (additions + deletions)
+  - Количество добавленных строк (additions)
+  - Количество удалённых строк (deletions)
   - Время нахождения PR на ревью
   - Количество коммитов
   - Количество комментариев и review комментариев
@@ -136,6 +138,8 @@ for pr in metrics.pull_requests:
     
     # Метрики
     print(f"Изменений: {pr.changes_count}")
+    print(f"Добавлено строк: {pr.additions_count}")
+    print(f"Удалено строк: {pr.deletions_count}")
     print(f"Время на ревью: {pr.review_time_hours} часов")
     print(f"Коммитов: {pr.commits_count}")
     print(f"Комментариев: {pr.comments_count}")
@@ -168,7 +172,9 @@ for pr in metrics.pull_requests:
 - `closed_at: datetime` - дата закрытия
 - `merged_at: Optional[datetime]` - дата мержа (если был)
 - `resolution: PRResolution` - финальная резолюция
-- `changes_count: int` - количество изменений
+- `changes_count: int` - количество изменений (additions + deletions)
+- `additions_count: int` - количество добавленных строк
+- `deletions_count: int` - количество удалённых строк
 - `review_time_hours: float` - время на ревью (часы)
 - `commits_count: int` - количество коммитов
 - `review_comments_count: int` - количество review комментариев

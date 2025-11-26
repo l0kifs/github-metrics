@@ -42,6 +42,8 @@ class PRMetrics(BaseModel):
     changes_count: int = Field(
         ..., description="Total number of changes (additions + deletions)"
     )
+    additions_count: int = Field(..., description="Number of lines added")
+    deletions_count: int = Field(..., description="Number of lines deleted")
     review_time_hours: float = Field(..., description="Time spent in review (hours)")
     commits_count: int = Field(..., description="Number of commits in the PR")
     review_comments_count: int = Field(..., description="Number of review comments")
