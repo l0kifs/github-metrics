@@ -55,6 +55,7 @@ def test_pr_metrics_model() -> None:
         commenters=[],
         labels=["bug", "enhancement"],
         description="This is a test PR",
+        test_metrics=None,
     )
 
     assert pr.number == 123
@@ -101,6 +102,7 @@ def test_repository_metrics_model() -> None:
         commits_count=3,
         review_comments_count=2,
         comments_count=1,
+        test_metrics=None,
     )
 
     pr2 = PRMetrics(
@@ -120,6 +122,7 @@ def test_repository_metrics_model() -> None:
         commits_count=2,
         review_comments_count=1,
         comments_count=0,
+        test_metrics=None,
     )
 
     metrics = RepositoryMetrics(

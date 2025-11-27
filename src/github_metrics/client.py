@@ -190,6 +190,100 @@ class GitHubGraphQLClient:
 
         return False
 
+    async def get_pr_diff(
+        self,
+        owner: str,
+        repo: str,
+        pull_number: int,
+        timeout: float | None = None,
+    ) -> str:
+        """
+        Fetch the unified diff for a pull request using REST API.
+
+        This method uses GitHub's REST API to get the diff content,
+        as GraphQL doesn't provide this data directly.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            pull_number: Pull request number
+            timeout: Optional timeout for this request in seconds
+
+        Returns:
+            The unified diff as a string
+
+        Raises:
+            httpx.HTTPStatusError: If the API request fails after retries
+        """
+        # Build REST API URL for the PR diff
+        rest_api_base = self.settings.github_api_url.replace(
+            "/graphql", ""
+        ).replace("/v3", "")
+        if rest_api_base.endswith("/"):
+            rest_api_base = rest_api_base[:-1]
+        url = f"{rest_api_base}/repos/{owner}/{repo}/pulls/{pull_number}"
+
+        headers = {
+            **self.headers,
+            "Accept": "application/vnd.github.diff",
+        }
+
+        logger.debug(
+            "Fetching PR diff",
+            owner=owner,
+            repo=repo,
+            pull_number=pull_number,
+        )
+
+        max_retries = 5
+        base_delay = 1.0
+
+        for attempt in range(max_retries):
+            response = await self.client.get(
+                url,
+                headers=headers,
+                timeout=timeout
+                if timeout is not None
+                else self.settings.github_api_timeout,
+            )
+
+            # Check for rate limiting
+            rate_limited = await self._handle_rate_limits(response)
+            if rate_limited:
+                continue
+
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if attempt == max_retries - 1:
+                    logger.error(
+                        "Failed to fetch PR diff after all retries",
+                        attempt=attempt + 1,
+                        max_retries=max_retries,
+                        error=str(e),
+                    )
+                    raise
+
+                delay = base_delay * (2**attempt)
+                logger.warning(
+                    "PR diff fetch attempt failed, retrying",
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    delay=delay,
+                    error=str(e),
+                )
+                await asyncio.sleep(delay)
+                continue
+
+            diff_text = response.text
+            logger.debug(
+                "PR diff fetched successfully",
+                diff_length=len(diff_text),
+            )
+            return diff_text
+
+        raise RuntimeError(f"Failed to fetch PR diff after {max_retries} attempts")
+
     async def close(self) -> None:
         """Close the HTTP client."""
         await self.client.aclose()

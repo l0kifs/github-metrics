@@ -10,7 +10,7 @@ from github_metrics.models import (
     RepositoryMetrics,
     User,
 )
-from github_metrics.test_analyzer import analyze_pr_diff, print_results
+from github_metrics.test_analyzer import analyze_pr_diff
 
 __all__ = [
     "MetricsCollector",
@@ -23,5 +23,4 @@ __all__ = [
     "RepositoryMetrics",
     "User",
     "analyze_pr_diff",
-    "print_results",
 ]

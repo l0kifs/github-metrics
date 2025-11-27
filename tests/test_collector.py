@@ -518,3 +518,205 @@ async def test_collect_pr_metrics_invalid_repo(collector: MetricsCollector) -> N
             start_date=start_date,
             end_date=end_date,
         )
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_with_test_metrics(
+    collector: MetricsCollector,
+) -> None:
+    """Test that test metrics are collected when include_test_metrics=True."""
+    mock_pr_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": 1,
+                        "title": "Add new tests",
+                        "url": "https://github.com/owner/repo/pull/1",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-11T12:00:00Z",
+                        "closedAt": "2024-01-11T12:00:00Z",
+                        "mergedAt": "2024-01-11T12:00:00Z",
+                        "body": "",
+                        "additions": 50,
+                        "deletions": 10,
+                        "changedFiles": 2,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser", "name": "Test User"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
+                    }
+                ],
+            }
+        }
+    }
+
+    mock_diff = """diff --git a/tests/test_new.py b/tests/test_new.py
+new file mode 100644
+index 0000000..abcdefg
+--- /dev/null
++++ b/tests/test_new.py
+@@ -0,0 +1,5 @@
++def test_new_feature():
++    assert True
+"""
+
+    with (
+        patch.object(
+            collector.client, "execute_query", new=AsyncMock(return_value=mock_pr_data)
+        ),
+        patch.object(
+            collector.client, "get_pr_diff", new=AsyncMock(return_value=mock_diff)
+        ),
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        metrics = await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+            include_test_metrics=True,
+        )
+
+        assert metrics.total_prs == 1
+        pr = metrics.pull_requests[0]
+
+        # Test metrics should be populated
+        assert pr.test_metrics is not None
+        assert pr.test_metrics.total_new == 1
+        assert pr.test_metrics.new_tests[0].test_name == "test_new_feature"
+        assert pr.test_metrics.total_updated == 0
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_without_test_metrics(
+    collector: MetricsCollector,
+) -> None:
+    """Test that test metrics are None when include_test_metrics=False."""
+    mock_pr_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": 1,
+                        "title": "Test PR",
+                        "url": "https://github.com/owner/repo/pull/1",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-11T12:00:00Z",
+                        "closedAt": "2024-01-11T12:00:00Z",
+                        "mergedAt": "2024-01-11T12:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
+                    }
+                ],
+            }
+        }
+    }
+
+    with patch.object(
+        collector.client, "execute_query", new=AsyncMock(return_value=mock_pr_data)
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        metrics = await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+            include_test_metrics=False,
+        )
+
+        assert metrics.total_prs == 1
+        pr = metrics.pull_requests[0]
+
+        # Test metrics should be None
+        assert pr.test_metrics is None
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_test_metrics_handles_diff_error(
+    collector: MetricsCollector,
+) -> None:
+    """Test that test metrics gracefully handles diff fetch errors."""
+    mock_pr_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": 1,
+                        "title": "Test PR",
+                        "url": "https://github.com/owner/repo/pull/1",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-11T12:00:00Z",
+                        "closedAt": "2024-01-11T12:00:00Z",
+                        "mergedAt": "2024-01-11T12:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
+                    }
+                ],
+            }
+        }
+    }
+
+    with (
+        patch.object(
+            collector.client, "execute_query", new=AsyncMock(return_value=mock_pr_data)
+        ),
+        patch.object(
+            collector.client,
+            "get_pr_diff",
+            new=AsyncMock(side_effect=RuntimeError("API error")),
+        ),
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        # Should not raise, but should return empty test metrics
+        metrics = await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+            include_test_metrics=True,
+        )
+
+        assert metrics.total_prs == 1
+        pr = metrics.pull_requests[0]
+
+        # Test metrics should be populated with empty values
+        assert pr.test_metrics is not None
+        assert pr.test_metrics.total_new == 0
+        assert pr.test_metrics.total_updated == 0

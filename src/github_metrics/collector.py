@@ -9,8 +9,15 @@ from loguru import logger
 from github_metrics.client import GitHubGraphQLClient
 from github_metrics.config.logging import setup_logging
 from github_metrics.config.settings import Settings
-from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics, User
+from github_metrics.models import (
+    PRMetrics,
+    PRResolution,
+    PytestMetrics,
+    RepositoryMetrics,
+    User,
+)
 from github_metrics.queries import PULL_REQUESTS_QUERY
+from github_metrics.test_analyzer import analyze_pr_diff
 
 
 class MetricsCollector:
@@ -34,6 +41,7 @@ class MetricsCollector:
         end_date: datetime,
         base_branch: str | None = None,
         timeout: float | None = None,
+        include_test_metrics: bool = False,
     ) -> RepositoryMetrics:
         """
         Collect PR metrics for a repository within a time period.
@@ -45,6 +53,7 @@ class MetricsCollector:
             end_date: End of the period (inclusive)
             base_branch: Optional target branch filter (e.g., 'main', 'develop')
             timeout: Optional timeout for API requests in seconds
+            include_test_metrics: If True, fetch and analyze PR diffs for test changes
 
         Returns:
             Repository metrics containing all PRs closed in the period
@@ -56,6 +65,7 @@ class MetricsCollector:
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
             base_branch=base_branch,
+            include_test_metrics=include_test_metrics,
         )
 
         # Validate owner and repo format
@@ -157,6 +167,16 @@ class MetricsCollector:
             and (base_branch is None or pr.base_branch == base_branch)
         ]
 
+        # Optionally fetch and analyze test metrics for each PR
+        if include_test_metrics:
+            logger.info(
+                "Fetching test metrics for PRs",
+                pr_count=len(filtered_pull_requests),
+            )
+            filtered_pull_requests = await self._add_test_metrics(
+                owner, repo, filtered_pull_requests, timeout
+            )
+
         logger.info(
             "Completed PR metrics collection",
             total_collected=len(pull_requests),
@@ -175,6 +195,65 @@ class MetricsCollector:
     async def close(self) -> None:
         """Close the client."""
         await self.client.close()
+
+    async def _add_test_metrics(
+        self,
+        owner: str,
+        repo: str,
+        pull_requests: list[PRMetrics],
+        timeout: float | None,
+    ) -> list[PRMetrics]:
+        """
+        Fetch PR diffs and analyze test changes for each PR.
+
+        This method fetches the diff for each PR and analyzes it to find
+        new and updated tests. It handles rate limits and errors gracefully,
+        continuing to the next PR if one fails.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            pull_requests: List of PR metrics to augment with test metrics
+            timeout: Optional timeout for API requests
+
+        Returns:
+            List of PR metrics with test_metrics populated
+        """
+        result: list[PRMetrics] = []
+
+        for pr in pull_requests:
+            try:
+                logger.debug(
+                    "Fetching diff for PR",
+                    pr_number=pr.number,
+                )
+                diff_text = await self.client.get_pr_diff(
+                    owner, repo, pr.number, timeout
+                )
+                test_metrics = analyze_pr_diff(diff_text)
+
+                # Create new PR with test_metrics set
+                pr_with_tests = pr.model_copy(update={"test_metrics": test_metrics})
+                result.append(pr_with_tests)
+
+                logger.debug(
+                    "Analyzed test metrics for PR",
+                    pr_number=pr.number,
+                    new_tests=test_metrics.total_new,
+                    updated_tests=test_metrics.total_updated,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to fetch/analyze diff for PR, using empty test metrics",
+                    pr_number=pr.number,
+                    error=str(e),
+                )
+                # If we fail to fetch diff, use empty test metrics
+                empty_metrics = PytestMetrics(new_tests=[], updated_tests=[])
+                pr_with_tests = pr.model_copy(update={"test_metrics": empty_metrics})
+                result.append(pr_with_tests)
+
+        return result
 
     def _parse_pr_metrics(self, pr_node: dict[str, Any]) -> PRMetrics:
         """
@@ -321,4 +400,5 @@ class MetricsCollector:
             commenters=commenters,
             labels=labels,
             description=description,
+            test_metrics=None,
         )
