@@ -180,3 +180,31 @@ async def test_execute_query_max_retries_exceeded(client: GitHubGraphQLClient) -
         # Should attempt 5 times (max_retries)
         assert mock_post.call_count == 5
         assert mock_sleep.call_count == 4  # 4 retries
+
+
+@pytest.mark.asyncio
+async def test_get_pr_diff_success(client: GitHubGraphQLClient) -> None:
+    """Test successful PR diff retrieval."""
+    diff_text = """diff --git a/tests/test_example.py b/tests/test_example.py
+new file mode 100644
+index 0000000..abcdefg
+--- /dev/null
++++ b/tests/test_example.py
+@@ -0,0 +1,5 @@
++def test_new():
++    assert True
+"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"x-ratelimit-remaining": "4999"}
+    mock_response.text = diff_text
+    mock_response.raise_for_status = MagicMock()
+
+    with patch.object(client.client, "get", return_value=mock_response) as mock_get:
+        result = await client.get_pr_diff("owner", "repo", 123)
+
+        assert result == diff_text
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        assert "/repos/owner/repo/pulls/123" in call_args[0][0]
+        assert call_args[1]["headers"]["Accept"] == "application/vnd.github.diff"

@@ -173,24 +173,3 @@ def _extract_test_lines(lines: list[str], func_idx: int) -> list[str]:
 
     return test_lines
 
-
-def print_results(results: PytestMetrics) -> None:
-    """Pretty print the analysis results."""
-    new = results.new_tests
-    updated = results.updated_tests
-
-    print(f"\n✨ New tests ({len(new)}):")
-    if new:
-        for test in new:
-            print(f"  + {test.filename}::{test.test_name}")
-    else:
-        print("  (none)")
-
-    print(f"\n🔄 Updated tests ({len(updated)}):")
-    if updated:
-        for test in updated:
-            print(f"  ~ {test.filename}::{test.test_name}")
-    else:
-        print("  (none)")
-
-    print(f"\n📊 Summary: {len(new)} new, {len(updated)} updated")

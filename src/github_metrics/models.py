@@ -61,6 +61,11 @@ class PRMetrics(BaseModel):
     labels: list[str] = Field(default_factory=list, description="PR labels")
     description: str = Field(default="", description="Full PR description")
 
+    # Test metrics (optional, populated when include_test_metrics=True)
+    test_metrics: "PytestMetrics | None" = Field(
+        None, description="Test change metrics from PR diff analysis"
+    )
+
 
 class RepositoryMetrics(BaseModel):
     """Aggregated metrics for a repository."""
@@ -120,3 +125,7 @@ class PytestMetrics(BaseModel):
     def total_updated(self) -> int:
         """Total number of updated tests."""
         return len(self.updated_tests)
+
+
+# Rebuild models to resolve forward references
+PRMetrics.model_rebuild()
