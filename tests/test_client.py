@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 
 from github_metrics.client import GitHubGraphQLClient
 from github_metrics.config.settings import Settings
@@ -12,7 +13,7 @@ from github_metrics.config.settings import Settings
 def settings() -> Settings:
     """Create test settings."""
     return Settings(
-        github_token="test_token",
+        github_token=SecretStr("test_token"),
         github_api_url="https://api.github.com/graphql",
     )
 
@@ -26,7 +27,8 @@ def client(settings: Settings) -> GitHubGraphQLClient:
 def test_client_initialization(client: GitHubGraphQLClient, settings: Settings) -> None:
     """Test client initialization."""
     assert client.api_url == settings.github_api_url
-    assert client.headers["Authorization"] == f"Bearer {settings.github_token}"
+    expected_auth = f"Bearer {settings.github_token.get_secret_value()}"
+    assert client.headers["Authorization"] == expected_auth
     assert client.headers["Content-Type"] == "application/json"
 
 
@@ -78,7 +80,7 @@ async def test_execute_query_with_errors(client: GitHubGraphQLClient) -> None:
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch.object(client.client, "post", return_value=mock_response) as mock_post:
+    with patch.object(client.client, "post", return_value=mock_response):
         query = "query { invalid }"
 
         with pytest.raises(ValueError, match="GraphQL errors"):
@@ -180,3 +182,32 @@ async def test_execute_query_max_retries_exceeded(client: GitHubGraphQLClient) -
         # Should attempt 5 times (max_retries)
         assert mock_post.call_count == 5
         assert mock_sleep.call_count == 4  # 4 retries
+
+
+@pytest.mark.asyncio
+async def test_get_pr_diff_success(client: GitHubGraphQLClient) -> None:
+    """Test successful PR diff fetching."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"x-ratelimit-remaining": "4999"}
+    mock_response.text = """diff --git a/test.py b/test.py
+--- a/test.py
++++ b/test.py
+@@ -1,3 +1,4 @@
+ def test():
+     pass
++    return True
+"""
+    mock_response.raise_for_status = MagicMock()
+
+    with patch.object(client.client, "get", return_value=mock_response) as mock_get:
+        diff = await client.get_pr_diff("owner", "repo", 123)
+
+        assert "diff --git" in diff
+        assert "+    return True" in diff
+        mock_get.assert_called_once()
+        # Verify correct URL was called
+        call_args = mock_get.call_args
+        assert "/repos/owner/repo/pulls/123" in call_args[0][0]
+        # Verify diff accept header
+        assert call_args[1]["headers"]["Accept"] == "application/vnd.github.diff"

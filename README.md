@@ -46,7 +46,7 @@ Or for development:
 ```bash
 git clone https://github.com/l0kifs/github-metrics.git
 cd github-metrics
-pip install -e .
+uv sync --all-groups
 ```
 
 ## Configuration
@@ -54,9 +54,14 @@ pip install -e .
 The library uses environment variables for configuration. Create a `.env` file or set environment variables:
 
 ```bash
+# Required
 GITHUB_METRICS__GITHUB_TOKEN=your_github_personal_access_token
-GITHUB_METRICS__GITHUB_API_URL=https://api.github.com/graphql  # optional
-GITHUB_METRICS__LOGGING_LEVEL=INFO  # optional
+
+# Optional
+GITHUB_METRICS__GITHUB_API_URL=https://api.github.com/graphql  # GitHub GraphQL API URL
+GITHUB_METRICS__GITHUB_API_TIMEOUT=120.0  # API request timeout in seconds
+GITHUB_METRICS__GITHUB_PAGE_SIZE=100  # Items per page in API requests
+GITHUB_METRICS__LOGGING_LEVEL=INFO  # Logging level (DEBUG, INFO, WARNING, ERROR)
 ```
 
 ### Getting GitHub Token
@@ -79,38 +84,75 @@ async def main():
     # Get settings (from environment variables)
     settings = get_settings()
     
-    # Initialize the collector
-    collector = MetricsCollector(settings)
-    
-    # Define the time period (e.g., last 30 days)
-    end_date = datetime.now(UTC)
-    start_date = end_date - timedelta(days=30)
-    
-    # Collect metrics
-    # You can specify a target branch (base_branch) for filtering
-    # For example: base_branch="main" or base_branch="develop"
-    metrics = await collector.collect_pr_metrics(
-        owner="octocat",
-        repo="Hello-World",
-        start_date=start_date,
-        end_date=end_date,
-        base_branch=None,  # None = all branches
-    )
-    
-    # Use the results
-    print(f"Total PRs: {metrics.total_prs}")
-    print(f"Merged PRs: {metrics.merged_prs}")
-    print(f"Closed (not merged) PRs: {metrics.closed_prs}")
-    
-    for pr in metrics.pull_requests:
-        print(f"PR #{pr.number}: {pr.title}")
-        print(f"  Resolution: {pr.resolution}")
-        print(f"  Changes: {pr.changes_count}")
-        print(f"  Review time: {pr.review_time_hours:.2f} hours")
-        print(f"  Approvers: {[u.login for u in pr.approvers]}")
+    # Initialize the collector with async context manager
+    async with MetricsCollector(settings) as collector:
+        # Define the time period (e.g., last 30 days)
+        end_date = datetime.now(UTC)
+        start_date = end_date - timedelta(days=30)
+        
+        # Collect metrics
+        # You can specify a target branch (base_branch) for filtering
+        # For example: base_branch="main" or base_branch="develop"
+        metrics = await collector.collect_pr_metrics(
+            owner="octocat",
+            repo="Hello-World",
+            start_date=start_date,
+            end_date=end_date,
+            base_branch=None,  # None = all branches
+        )
+        
+        # Use the results
+        print(f"Total PRs: {metrics.total_prs}")
+        print(f"Merged PRs: {metrics.merged_prs}")
+        print(f"Closed (not merged) PRs: {metrics.closed_prs}")
+        
+        for pr in metrics.pull_requests:
+            print(f"PR #{pr.number}: {pr.title}")
+            print(f"  Resolution: {pr.resolution}")
+            print(f"  Changes: {pr.changes_count}")
+            print(f"  Review time: {pr.review_time_hours:.2f} hours")
+            print(f"  Approvers: {[u.login for u in pr.approvers]}")
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
+
+### Limiting Results
+
+For large repositories, you can limit the number of results:
+
+```python
+# Limit to first 50 PRs
+metrics = await collector.collect_pr_metrics(
+    owner="octocat",
+    repo="Hello-World",
+    start_date=start_date,
+    end_date=end_date,
+    max_results=50,  # Stop after collecting 50 PRs
+)
+```
+
+### Progress Tracking
+
+For long-running collections, you can provide a callback to track progress:
+
+```python
+def on_progress(count: int, message: str) -> None:
+    print(f"[{count} PRs] {message}")
+
+metrics = await collector.collect_pr_metrics(
+    owner="octocat",
+    repo="Hello-World",
+    start_date=start_date,
+    end_date=end_date,
+    progress_callback=on_progress,
+)
+
+# Output:
+# [0 PRs] Starting collection for octocat/Hello-World
+# [0 PRs] Fetching page 1...
+# [25 PRs] Fetching page 2...
+# [42 PRs] Collection complete. Found 42 PRs.
 ```
 
 For a complete working example with detailed output and JSON export, see `examples/example.py`.
@@ -199,33 +241,82 @@ Enum of PR final resolution:
 - `MERGED` - PR was merged
 - `CLOSED_NOT_MERGED` - PR was closed without merge
 
+### `PytestInfo`
+Information about a single test function:
+- `filename: str` - path to the test file
+- `test_name: str` - name of the test function
+
+### `PytestMetrics`
+Metrics for test changes in a PR diff:
+- `new_tests: list[PytestInfo]` - list of newly added tests
+- `updated_tests: list[PytestInfo]` - list of updated/modified tests
+- `total_new: int` - total number of new tests (property)
+- `total_updated: int` - total number of updated tests (property)
+
+## Test Analyzer
+
+The library includes a utility for analyzing pytest test changes in PR diffs:
+
+```python
+from github_metrics import MetricsCollector, analyze_pr_diff, get_settings
+
+async def analyze_tests_in_prs():
+    settings = get_settings()
+    
+    async with MetricsCollector(settings) as collector:
+        # First collect PR metrics
+        metrics = await collector.collect_pr_metrics(
+            owner="octocat",
+            repo="Hello-World",
+            start_date=start_date,
+            end_date=end_date,
+        )
+        
+        # Then fetch and analyze diffs for each PR
+        for pr in metrics.pull_requests:
+            # Fetch the actual diff from GitHub
+            diff_text = await collector.get_pr_diff(
+                owner="octocat",
+                repo="Hello-World",
+                pr_number=pr.number,
+            )
+            
+            # Analyze the diff for test changes
+            results = analyze_pr_diff(diff_text)
+            
+            if results.total_new > 0 or results.total_updated > 0:
+                print(f"PR #{pr.number}: {pr.title}")
+                for test in results.new_tests:
+                    print(f"  + New: {test.filename}::{test.test_name}")
+                for test in results.updated_tests:
+                    print(f"  ~ Updated: {test.filename}::{test.test_name}")
+```
+
 ## Development
 
 ### Installing Development Dependencies
 
 ```bash
-pip install -e ".[dev]"
-# or
-pip install mypy pytest ruff pytest-asyncio
+uv sync --all-groups
 ```
 
 ### Running Tests
 
 ```bash
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ### Linting and Formatting
 
 ```bash
 # Check code
-ruff check src/ tests/
+uv run ruff check src/ tests/
 
 # Format code
-ruff format src/ tests/
+uv run ruff format src/ tests/
 
 # Type checking
-mypy src/
+uv run mypy src/
 ```
 
 ## License

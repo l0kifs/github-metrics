@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from loguru import logger
@@ -23,13 +23,26 @@ class GitHubGraphQLClient:
         self.settings = settings
         self.api_url = settings.github_api_url
         self.headers = {
-            "Authorization": f"Bearer {settings.github_token}",
+            "Authorization": f"Bearer {settings.github_token.get_secret_value()}",
             "Content-Type": "application/json",
         }
         self.client = httpx.AsyncClient(
             headers=self.headers,
             timeout=self.settings.github_api_timeout,
         )
+
+    async def __aenter__(self) -> Self:
+        """Enter async context manager."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        """Exit async context manager and close the client."""
+        await self.close()
 
     async def execute_query(
         self,
@@ -189,6 +202,77 @@ class GitHubGraphQLClient:
                 pass  # Ignore JSON parsing errors
 
         return False
+
+    async def get_pr_diff(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        timeout: float | None = None,
+    ) -> str:
+        """
+        Fetch the diff for a pull request.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            pr_number: Pull request number
+            timeout: Optional timeout for this request in seconds
+
+        Returns:
+            The PR diff as a string in unified diff format
+
+        Raises:
+            httpx.HTTPStatusError: If the API request fails
+        """
+        # Use REST API endpoint for PR diff
+        # Replace graphql URL with REST API base
+        base_url = self.api_url.replace("/graphql", "")
+        url = f"{base_url}/repos/{owner}/{repo}/pulls/{pr_number}"
+
+        headers = {
+            **self.headers,
+            "Accept": "application/vnd.github.diff",
+        }
+
+        logger.debug(
+            "Fetching PR diff",
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+        )
+
+        response = await self.client.get(
+            url,
+            headers=headers,
+            timeout=timeout
+            if timeout is not None
+            else self.settings.github_api_timeout,
+        )
+
+        # Handle rate limits
+        rate_limited = await self._handle_rate_limits(response)
+        if rate_limited:
+            # Retry once after rate limit
+            response = await self.client.get(
+                url,
+                headers=headers,
+                timeout=timeout
+                if timeout is not None
+                else self.settings.github_api_timeout,
+            )
+
+        response.raise_for_status()
+
+        logger.debug(
+            "PR diff fetched successfully",
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+            diff_length=len(response.text),
+        )
+
+        return response.text
 
     async def close(self) -> None:
         """Close the HTTP client."""

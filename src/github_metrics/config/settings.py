@@ -1,4 +1,6 @@
-from pydantic import Field
+from functools import lru_cache
+
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,8 +31,9 @@ class Settings(BaseSettings):
     )
 
     # GitHub API settings
-    github_token: str = Field(
-        default="", description="GitHub Personal Access Token for API authentication"
+    github_token: SecretStr = Field(
+        default=SecretStr(""),
+        description="GitHub Personal Access Token for API authentication",
     )
     github_api_url: str = Field(
         default="https://api.github.com/graphql",
@@ -46,6 +49,7 @@ class Settings(BaseSettings):
     )
 
 
+@lru_cache
 def get_settings() -> Settings:
-    """Retrieve application settings"""
+    """Retrieve application settings (cached singleton)."""
     return Settings()

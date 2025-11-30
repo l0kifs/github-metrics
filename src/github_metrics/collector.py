@@ -1,8 +1,9 @@
 """GitHub metrics collector service."""
 
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Self
 
 from loguru import logger
 
@@ -11,6 +12,10 @@ from github_metrics.config.logging import setup_logging
 from github_metrics.config.settings import Settings
 from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics, User
 from github_metrics.queries import PULL_REQUESTS_QUERY
+
+# Type alias for progress callback
+# Args: (current_count: int, message: str)
+ProgressCallback = Callable[[int, str], None]
 
 
 class MetricsCollector:
@@ -26,6 +31,19 @@ class MetricsCollector:
         setup_logging()
         self.client = GitHubGraphQLClient(settings)
 
+    async def __aenter__(self) -> Self:
+        """Enter async context manager."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        """Exit async context manager and close the client."""
+        await self.close()
+
     async def collect_pr_metrics(
         self,
         owner: str,
@@ -34,6 +52,8 @@ class MetricsCollector:
         end_date: datetime,
         base_branch: str | None = None,
         timeout: float | None = None,
+        max_results: int | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> RepositoryMetrics:
         """
         Collect PR metrics for a repository within a time period.
@@ -45,6 +65,12 @@ class MetricsCollector:
             end_date: End of the period (inclusive)
             base_branch: Optional target branch filter (e.g., 'main', 'develop')
             timeout: Optional timeout for API requests in seconds
+            max_results: Optional maximum number of PRs to return. When set,
+                collection stops after reaching this limit. Useful for large
+                repositories to limit collection time.
+            progress_callback: Optional callback function called during collection.
+                Receives (current_count: int, message: str) to report progress.
+                Example: lambda count, msg: print(f"Collected {count} PRs: {msg}")
 
         Returns:
             Repository metrics containing all PRs closed in the period
@@ -59,15 +85,15 @@ class MetricsCollector:
         )
 
         # Validate owner and repo format
-        if not re.match(r"^[a-zA-Z0-9_-]+$", owner):
+        if not re.match(r"^[a-zA-Z0-9._-]+$", owner):
             raise ValueError(
                 f"Invalid owner: '{owner}'. "
-                "Must be alphanumeric, dashes, underscores only."
+                "Must be alphanumeric, dashes, underscores, or dots only."
             )
-        if not re.match(r"^[a-zA-Z0-9_-]+$", repo):
+        if not re.match(r"^[a-zA-Z0-9._-]+$", repo):
             raise ValueError(
                 f"Invalid repo: '{repo}'. "
-                "Must be alphanumeric, dashes, underscores only."
+                "Must be alphanumeric, dashes, underscores, or dots only."
             )
 
         # Ensure dates are timezone-aware
@@ -79,9 +105,23 @@ class MetricsCollector:
         pull_requests: list[PRMetrics] = []
         has_next_page = True
         cursor = None
+        page_count = 0
+
+        # Report initial progress
+        if progress_callback:
+            progress_callback(0, f"Starting collection for {owner}/{repo}")
 
         while has_next_page:
-            logger.debug("Fetching page of pull requests", cursor=cursor)
+            page_count += 1
+            logger.debug(
+                "Fetching page of pull requests", cursor=cursor, page=page_count
+            )
+
+            if progress_callback:
+                progress_callback(
+                    len(pull_requests),
+                    f"Fetching page {page_count}...",
+                )
 
             variables = {
                 "owner": owner,
@@ -134,6 +174,22 @@ class MetricsCollector:
                         pr_number=pr_metrics.number,
                         resolution=pr_metrics.resolution,
                     )
+
+                    # Check if we've reached max_results limit
+                    if max_results is not None and len(pull_requests) >= max_results:
+                        logger.info(
+                            "Reached max_results limit, stopping collection",
+                            max_results=max_results,
+                            collected=len(pull_requests),
+                        )
+                        if progress_callback:
+                            progress_callback(
+                                len(pull_requests),
+                                f"Reached limit of {max_results} PRs",
+                            )
+                        has_next_page = False
+                        break
+
                 except Exception as e:
                     logger.warning(
                         "Failed to parse PR metrics, skipping PR",
@@ -157,6 +213,16 @@ class MetricsCollector:
             and (base_branch is None or pr.base_branch == base_branch)
         ]
 
+        # Apply max_results limit to filtered results if needed
+        if max_results is not None and len(filtered_pull_requests) > max_results:
+            filtered_pull_requests = filtered_pull_requests[:max_results]
+
+        if progress_callback:
+            progress_callback(
+                len(filtered_pull_requests),
+                f"Collection complete. Found {len(filtered_pull_requests)} PRs.",
+            )
+
         logger.info(
             "Completed PR metrics collection",
             total_collected=len(pull_requests),
@@ -171,6 +237,27 @@ class MetricsCollector:
             period_end=end_date,
             pull_requests=filtered_pull_requests,
         )
+
+    async def get_pr_diff(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        timeout: float | None = None,
+    ) -> str:
+        """
+        Fetch the diff for a pull request.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            pr_number: Pull request number
+            timeout: Optional timeout for this request in seconds
+
+        Returns:
+            The PR diff as a string in unified diff format
+        """
+        return await self.client.get_pr_diff(owner, repo, pr_number, timeout)
 
     async def close(self) -> None:
         """Close the client."""

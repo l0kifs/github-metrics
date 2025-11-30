@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pydantic import SecretStr
 
 from github_metrics.collector import MetricsCollector
 from github_metrics.config.settings import Settings
@@ -14,7 +15,7 @@ from github_metrics.models import PRResolution
 def settings() -> Settings:
     """Create test settings."""
     return Settings(
-        github_token="test_token",
+        github_token=SecretStr("test_token"),
         github_api_url="https://api.github.com/graphql",
     )
 
@@ -518,3 +519,192 @@ async def test_collect_pr_metrics_invalid_repo(collector: MetricsCollector) -> N
             start_date=start_date,
             end_date=end_date,
         )
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_with_max_results(collector: MetricsCollector) -> None:
+    """Test that max_results limits the number of collected PRs."""
+    mock_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": i,
+                        "title": f"PR {i}",
+                        "url": f"https://github.com/owner/repo/pull/{i}",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-15T12:00:00Z",
+                        "closedAt": "2024-01-15T12:00:00Z",
+                        "mergedAt": "2024-01-15T12:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
+                    }
+                    for i in range(1, 6)  # 5 PRs
+                ],
+            }
+        }
+    }
+
+    with patch.object(
+        collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        # Collect with max_results=3
+        metrics = await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+            max_results=3,
+        )
+
+        # Should only have 3 PRs
+        assert metrics.total_prs == 3
+        assert len(metrics.pull_requests) == 3
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_with_progress_callback(
+    collector: MetricsCollector,
+) -> None:
+    """Test that progress_callback is called during collection."""
+    mock_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "nodes": [
+                    {
+                        "number": 1,
+                        "title": "Test PR",
+                        "url": "https://github.com/owner/repo/pull/1",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-15T12:00:00Z",
+                        "closedAt": "2024-01-15T12:00:00Z",
+                        "mergedAt": "2024-01-15T12:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
+                    }
+                ],
+            }
+        }
+    }
+
+    progress_calls: list[tuple[int, str]] = []
+
+    def track_progress(count: int, message: str) -> None:
+        progress_calls.append((count, message))
+
+    with patch.object(
+        collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+            progress_callback=track_progress,
+        )
+
+        # Should have at least 3 calls: start, fetching page, completion
+        assert len(progress_calls) >= 3
+
+        # First call should be start
+        assert progress_calls[0][0] == 0
+        assert "Starting collection" in progress_calls[0][1]
+
+        # Second call should be fetching page
+        assert "Fetching page" in progress_calls[1][1]
+
+        # Last call should be completion
+        assert "Collection complete" in progress_calls[-1][1]
+
+
+@pytest.mark.asyncio
+async def test_collect_pr_metrics_max_results_with_progress_callback(
+    collector: MetricsCollector,
+) -> None:
+    """Test that progress_callback reports when max_results limit is reached."""
+    mock_data = {
+        "repository": {
+            "pullRequests": {
+                "pageInfo": {"hasNextPage": True, "endCursor": "cursor"},
+                "nodes": [
+                    {
+                        "number": i,
+                        "title": f"PR {i}",
+                        "url": f"https://github.com/owner/repo/pull/{i}",
+                        "isDraft": False,
+                        "baseRefName": "main",
+                        "createdAt": "2024-01-10T12:00:00Z",
+                        "updatedAt": "2024-01-15T12:00:00Z",
+                        "closedAt": "2024-01-15T12:00:00Z",
+                        "mergedAt": "2024-01-15T12:00:00Z",
+                        "body": "",
+                        "additions": 10,
+                        "deletions": 5,
+                        "changedFiles": 1,
+                        "commits": {"totalCount": 1},
+                        "author": {"login": "testuser"},
+                        "labels": {"nodes": []},
+                        "comments": {"totalCount": 0},
+                        "reviews": {"nodes": []},
+                        "reviewThreads": {"totalCount": 0, "nodes": []},
+                        "timelineItems": {"nodes": []},
+                    }
+                    for i in range(1, 6)  # 5 PRs per page
+                ],
+            }
+        }
+    }
+
+    progress_calls: list[tuple[int, str]] = []
+
+    def track_progress(count: int, message: str) -> None:
+        progress_calls.append((count, message))
+
+    with patch.object(
+        collector.client, "execute_query", new=AsyncMock(return_value=mock_data)
+    ):
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+
+        await collector.collect_pr_metrics(
+            owner="owner",
+            repo="repo",
+            start_date=start_date,
+            end_date=end_date,
+            max_results=3,
+            progress_callback=track_progress,
+        )
+
+        # Should have a call reporting limit reached
+        limit_calls = [call for call in progress_calls if "limit" in call[1].lower()]
+        assert len(limit_calls) >= 1
