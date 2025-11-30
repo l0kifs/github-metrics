@@ -1,47 +1,47 @@
 # github-metrics
 
-Асинхронная библиотека для сбора метрик GitHub с использованием GraphQL API.
+Asynchronous library for collecting GitHub metrics using GraphQL API.
 
-## Описание
+## Description
 
-`github-metrics` - это Python библиотека для сбора метрик по Pull Request'ам из GitHub репозиториев. Библиотека использует GitHub GraphQL API для эффективного получения данных и полностью поддерживает асинхронность.
+`github-metrics` is a Python library for collecting metrics on Pull Requests from GitHub repositories. The library uses GitHub GraphQL API for efficient data retrieval and fully supports asynchronous operations.
 
-## Основные возможности
+## Key Features
 
-- **Асинхронный сбор метрик**: Полная поддержка async/await
-- **GitHub GraphQL API**: Использование эффективного GraphQL API вместо REST
-- **Фильтрация по времени**: Сбор метрик за указанный период времени
-- **Фильтрация по ветке**: Возможность фильтровать PR по целевой ветке (main, develop и т.д.)
-- **Детальная информация по PR**: 
-  - Целевая ветка (base branch)
-  - Количество изменений (additions + deletions)
-  - Количество добавленных строк (additions)
-  - Количество удалённых строк (deletions)
-  - Время нахождения PR на ревью
-  - Количество коммитов
-  - Количество комментариев и review комментариев
-  - Список пользователей, поставивших approve
-  - Список пользователей, оставивших комментарии
-  - Метки (labels) PR
-  - Полное описание PR
-- **Разделение по резолюции**: Merged vs Closed (не merged)
-- **Исключение draft PR**: Draft PR не учитываются в метриках
+- **Asynchronous metrics collection**: Full support for async/await
+- **GitHub GraphQL API**: Using efficient GraphQL API instead of REST
+- **Time-based filtering**: Collect metrics for a specified time period
+- **Branch filtering**: Ability to filter PRs by target branch (main, develop, etc.)
+- **Detailed PR information**: 
+  - Target branch (base branch)
+  - Number of changes (additions + deletions)
+  - Number of added lines (additions)
+  - Number of deleted lines (deletions)
+  - Time spent in review
+  - Number of commits
+  - Number of comments and review comments
+  - List of users who approved
+  - List of users who left comments
+  - PR labels
+  - Full PR description
+- **Resolution separation**: Merged vs Closed (not merged)
+- **Draft PR exclusion**: Draft PRs are not included in metrics
 
-## Технический стек
+## Technical Stack
 
 - **Python**: 3.12+
-- **httpx**: Асинхронный HTTP клиент
-- **loguru**: Структурированное логирование
-- **pydantic**: Валидация данных и настройки
-- **pydantic-settings**: Управление конфигурацией
+- **httpx**: Asynchronous HTTP client
+- **loguru**: Structured logging
+- **pydantic**: Data validation and settings
+- **pydantic-settings**: Configuration management
 
-## Установка
+## Installation
 
 ```bash
 pip install github-metrics
 ```
 
-Или для разработки:
+Or for development:
 
 ```bash
 git clone https://github.com/l0kifs/github-metrics.git
@@ -49,26 +49,26 @@ cd github-metrics
 pip install -e .
 ```
 
-## Конфигурация
+## Configuration
 
-Библиотека использует переменные окружения для конфигурации. Создайте файл `.env` или установите переменные окружения:
+The library uses environment variables for configuration. Create a `.env` file or set environment variables:
 
 ```bash
 GITHUB_METRICS__GITHUB_TOKEN=your_github_personal_access_token
-GITHUB_METRICS__GITHUB_API_URL=https://api.github.com/graphql  # опционально
-GITHUB_METRICS__LOGGING_LEVEL=INFO  # опционально
+GITHUB_METRICS__GITHUB_API_URL=https://api.github.com/graphql  # optional
+GITHUB_METRICS__LOGGING_LEVEL=INFO  # optional
 ```
 
-### Получение GitHub Token
+### Getting GitHub Token
 
-1. Перейдите в Settings → Developer settings → Personal access tokens
-2. Создайте новый token с правами:
-   - `repo` (полный доступ к приватным репозиториям) или
-   - `public_repo` (доступ только к публичным репозиториям)
+1. Go to Settings → Developer settings → Personal access tokens
+2. Create a new token with permissions:
+   - `repo` (full access to private repositories) or
+   - `public_repo` (access only to public repositories)
 
-## Использование
+## Usage
 
-### Базовый пример
+### Basic Example
 
 ```python
 import asyncio
@@ -76,28 +76,28 @@ from datetime import UTC, datetime, timedelta
 from github_metrics import MetricsCollector, get_settings
 
 async def main():
-    # Получение настроек (из переменных окружения)
+    # Get settings (from environment variables)
     settings = get_settings()
     
-    # Инициализация коллектора
+    # Initialize the collector
     collector = MetricsCollector(settings)
     
-    # Определение периода (например, последние 30 дней)
+    # Define the time period (e.g., last 30 days)
     end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=30)
     
-    # Сбор метрик
-    # Можно указать целевую ветку (base_branch) для фильтрации
-    # Например: base_branch="main" или base_branch="develop"
+    # Collect metrics
+    # You can specify a target branch (base_branch) for filtering
+    # For example: base_branch="main" or base_branch="develop"
     metrics = await collector.collect_pr_metrics(
         owner="octocat",
         repo="Hello-World",
         start_date=start_date,
         end_date=end_date,
-        base_branch=None,  # None = все ветки
+        base_branch=None,  # None = all branches
     )
     
-    # Использование результатов
+    # Use the results
     print(f"Total PRs: {metrics.total_prs}")
     print(f"Merged PRs: {metrics.merged_prs}")
     print(f"Closed (not merged) PRs: {metrics.closed_prs}")
@@ -113,130 +113,130 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Для полного рабочего примера с детальным выводом и экспортом в JSON, см. `examples/example.py`.
+For a complete working example with detailed output and JSON export, see `examples/example.py`.
 
-### Работа с моделями данных
+### Working with Data Models
 
 ```python
 from github_metrics.models import PRMetrics, PRResolution, RepositoryMetrics
 
-# Metrics для репозитория содержит список всех PR
+# Metrics for repository contains list of all PRs
 for pr in metrics.pull_requests:
-    # Основная информация
+    # Basic information
     print(pr.number, pr.title, pr.url)
     print(f"Target branch: {pr.base_branch}")
     print(pr.author.login, pr.author.name)
     
-    # Даты
+    # Dates
     print(pr.created_at, pr.closed_at, pr.merged_at)
     
-    # Резолюция
+    # Resolution
     if pr.resolution == PRResolution.MERGED:
-        print("PR был смержен")
+        print("PR was merged")
     else:
-        print("PR был закрыт без мержа")
+        print("PR was closed without merge")
     
-    # Метрики
-    print(f"Изменений: {pr.changes_count}")
-    print(f"Добавлено строк: {pr.additions_count}")
-    print(f"Удалено строк: {pr.deletions_count}")
-    print(f"Время на ревью: {pr.review_time_hours} часов")
-    print(f"Коммитов: {pr.commits_count}")
-    print(f"Комментариев: {pr.comments_count}")
-    print(f"Review комментариев: {pr.review_comments_count}")
+    # Metrics
+    print(f"Changes: {pr.changes_count}")
+    print(f"Lines added: {pr.additions_count}")
+    print(f"Lines deleted: {pr.deletions_count}")
+    print(f"Review time: {pr.review_time_hours} hours")
+    print(f"Commits: {pr.commits_count}")
+    print(f"Comments: {pr.comments_count}")
+    print(f"Review comments: {pr.review_comments_count}")
     
-    # Участники
+    # Participants
     print(f"Approvers: {[u.login for u in pr.approvers]}")
     print(f"Commenters: {[u.login for u in pr.commenters]}")
     
-    # Дополнительная информация
+    # Additional information
     print(f"Labels: {pr.labels}")
     print(f"Description: {pr.description}")
 ```
 
-## Модели данных
+## Data Models
 
 ### `User`
-Информация о пользователе GitHub:
-- `login: str` - имя пользователя
-- `name: Optional[str]` - отображаемое имя
+GitHub user information:
+- `login: str` - username
+- `name: Optional[str]` - display name
 
 ### `PRMetrics`
-Метрики для отдельного Pull Request:
-- `number: int` - номер PR
-- `title: str` - заголовок PR
-- `url: str` - URL PR
-- `base_branch: str` - целевая ветка PR
-- `author: User` - автор PR
-- `created_at: datetime` - дата создания
-- `closed_at: datetime` - дата закрытия
-- `merged_at: Optional[datetime]` - дата мержа (если был)
-- `resolution: PRResolution` - финальная резолюция
-- `changes_count: int` - количество изменений (additions + deletions)
-- `additions_count: int` - количество добавленных строк
-- `deletions_count: int` - количество удалённых строк
-- `review_time_hours: float` - время на ревью (часы)
-- `commits_count: int` - количество коммитов
-- `review_comments_count: int` - количество review комментариев
-- `comments_count: int` - количество обычных комментариев
-- `approvers: list[User]` - пользователи, поставившие approve
-- `commenters: list[User]` - пользователи, оставившие комментарии
-- `labels: list[str]` - метки PR
-- `description: str` - полное описание PR
+Metrics for a single Pull Request:
+- `number: int` - PR number
+- `title: str` - PR title
+- `url: str` - PR URL
+- `base_branch: str` - PR target branch
+- `author: User` - PR author
+- `created_at: datetime` - creation date
+- `closed_at: datetime` - closure date
+- `merged_at: Optional[datetime]` - merge date (if merged)
+- `resolution: PRResolution` - final resolution
+- `changes_count: int` - number of changes (additions + deletions)
+- `additions_count: int` - number of added lines
+- `deletions_count: int` - number of deleted lines
+- `review_time_hours: float` - time in review (hours)
+- `commits_count: int` - number of commits
+- `review_comments_count: int` - number of review comments
+- `comments_count: int` - number of general comments
+- `approvers: list[User]` - users who approved
+- `commenters: list[User]` - users who left comments
+- `labels: list[str]` - PR labels
+- `description: str` - full PR description
 
 ### `RepositoryMetrics`
-Агрегированные метрики для репозитория:
-- `repository: str` - имя репозитория (owner/repo)
-- `period_start: datetime` - начало периода
-- `period_end: datetime` - конец периода
-- `pull_requests: list[PRMetrics]` - список метрик по PR
-- `total_prs: int` - общее количество PR (property)
-- `merged_prs: int` - количество смерженных PR (property)
-- `closed_prs: int` - количество закрытых без мержа PR (property)
+Aggregated metrics for a repository:
+- `repository: str` - repository name (owner/repo)
+- `period_start: datetime` - period start
+- `period_end: datetime` - period end
+- `pull_requests: list[PRMetrics]` - list of PR metrics
+- `total_prs: int` - total number of PRs (property)
+- `merged_prs: int` - number of merged PRs (property)
+- `closed_prs: int` - number of closed without merge PRs (property)
 
 ### `PRResolution`
-Enum финальной резолюции PR:
-- `MERGED` - PR был смержен
-- `CLOSED_NOT_MERGED` - PR был закрыт без мержа
+Enum of PR final resolution:
+- `MERGED` - PR was merged
+- `CLOSED_NOT_MERGED` - PR was closed without merge
 
-## Разработка
+## Development
 
-### Установка зависимостей для разработки
+### Installing Development Dependencies
 
 ```bash
 pip install -e ".[dev]"
-# или
+# or
 pip install mypy pytest ruff pytest-asyncio
 ```
 
-### Запуск тестов
+### Running Tests
 
 ```bash
 pytest tests/ -v
 ```
 
-### Линтинг и форматирование
+### Linting and Formatting
 
 ```bash
-# Проверка кода
+# Check code
 ruff check src/ tests/
 
-# Форматирование
+# Format code
 ruff format src/ tests/
 
-# Проверка типов
+# Type checking
 mypy src/
 ```
 
-## Лицензия
+## License
 
-MIT License - см. файл [LICENSE](LICENSE)
+MIT License - see [LICENSE](LICENSE) file
 
-## Авторы
+## Authors
 
 - l0kifs - [l0kifs91@gmail.com](mailto:l0kifs91@gmail.com)
 
-## Ссылки
+## Links
 
 - [GitHub Repository](https://github.com/l0kifs/github-metrics)
 - [Issue Tracker](https://github.com/l0kifs/github-metrics/issues)
